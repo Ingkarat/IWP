@@ -1,5 +1,7 @@
 import ast
 
+import config
+
 class Edge:
   def __init__(self, source, target, data):
     # src and tgt are strings, label is AST node ref
@@ -41,23 +43,6 @@ class Graph:
         if edge.src == edge.tgt:
             return
 
-        #if "pandas/core/generic.py:NDFrame:all" in edge.src and "pandas/core/generic.py:NDFrame:_logical_func" in edge.tgt:
-        #    return
-        if "pandas/core/generic.py:NDFrame:_logical_func" in edge.src and "pandas/core/generic.py:NDFrame:all" in edge.tgt:
-            return
-        #if "pandas/core/generic.py:NDFrame:_logical_func" in edge.src and "pandas/core/frame.py:DataFrame:_reduce" in edge.tgt:
-        #    return
-        #if "pandas/core/dtypes/common.py:None:_is_dtype_type" in edge.src and "pandas/core/computation/ops.py:Op:is_scalar" in edge.tgt:
-        #    return
-        #if "pandas/core/tools/datetimes.py:None:_assemble_from_unit_mappings" in edge.src and "pandas/core/tools/datetimes.py:None:to_datetime" in edge.tgt:
-        #    return
-        if "pandas/core/dtypes/common.py:None:is_datetime64_dtype" in edge.src and "pandas/core/dtypes/common.py:None:_is_dtype_type" in edge.tgt:
-            return
-        if "pandas/core/frame.py:DataFrame:_reduce" in edge.src and "pandas/core/dtypes/common.py:None:is_object_dtype" in edge.tgt:
-            return
-        #if "pandas/core/generic.py:NDFrame:all" in edge.tgt:
-        #    return
-
         self.addNode(edge.src)
         self.addNode(edge.tgt)
         if not self.hasEdge(edge.src,edge.tgt,edge.label):
@@ -80,15 +65,16 @@ class Graph:
                result.append(edge)
         return result
 
+    def rpl(self, x):
+        return x.replace(config.PATH_SHORTENING,"")
+
     def printGraph(self):
-        replcs = "/pandas"
         print("\n Printing the graph (garph.py): ")    
         for key in self.edges.keys():
             for edge in self.edges[key]:
-                print("Call from ",edge.src.replace(replcs,"")," to ",edge.tgt.replace(replcs,""))  
+                print("Call from ",self.rpl(edge.src)," to ",self.rpl(edge.tgt))
 
     def printGraphLabel(self):
-        replc = "/sklearn"
         print("\n Printing the graph: ")    
         for key in self.edges.keys():
             for edge in self.edges[key]:
@@ -118,7 +104,7 @@ class Graph:
                     closure.append(edge.tgt)
                     worklist.append(edge.tgt)
            if key in closure:
-             print("Call graph is NOT a DAG: ",key)
+             if config.PRINT_DEBUG: print("Call graph is NOT a DAG: ",key)
              return False 
         return True 
 
@@ -145,7 +131,7 @@ class Graph:
             if n in perm_mark:
                 return
             if n in temp_mark:
-                print("ISDAG2:", n)
+                if config.PRINT_DEBUG: print("ISDAG2:", n)
                 dag = False
                 return
 
@@ -181,9 +167,10 @@ class Graph:
                     return dag
 
         self.topo = L
-
-        for s in self.topo:
-            print(">", s)
+        
+        if config.PRINT_DEBUG: 
+            for s in self.topo:
+                print(">", self.rpl(s))
         
         return dag
 

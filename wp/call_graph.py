@@ -5,6 +5,7 @@ import ast
 import sys
 import os
 
+import config
 import graph
 import crawler
 
@@ -24,7 +25,7 @@ def ok_receiver(node):
     return True
   if (ins(func,ast.Attribute) and ins(func.value,ast.Constant)):
     return True
-  return False;
+  return False
 
 def ok_name(func_name):
   ok_names = ['TypeError','RuntimeError','ValueError','min','max','isinstance','int','ceil','super','len','issparse','getattr','hasattr','callable','str','reversed']
@@ -48,44 +49,46 @@ class CallGraphAnalyzer(ast.NodeVisitor):
 
   def visit_Call(self,node):
     # Call(expr func, expr* args, keyword* keywords)
-    print("!!! Visiting call: ", ast.dump(node))
+    if config.PRINT_DEBUG: print("!!! Visiting call: ", ast.dump(node))
     self.curr_call_node = node
     if ins(node.func,ast.Name):
-      print("Function is a Name.")
+      if config.PRINT_DEBUG: print("Function is a Name.")
       func_list = self.resolve_name(node.func.id)
       for func_name in func_list:
         # print("Call: ", ast.dump(node))
         # print('IN NAME Func call from ',self.curr_func," to ",func_name);
         self.new_edge(self.curr_func,func_name,node)
       if func_list == [] and not ok_name(node.func.id):
-        print("Call: ", ast.dump(node))
-        print("NAME Function call in ",self.curr_func," is something else...\n")
-        print("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD")
+        if config.PRINT_DEBUG: 
+          print("Call: ", ast.dump(node))
+          print("NAME Function call in ",self.curr_func," is something else...\n")
+          print("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD")
     elif (ins(node.func,ast.Attribute) and ins(node.func.value,ast.Name) and self.resolve_base(node.func.value.id) and len(node.args)>0 and ins(node.args[0],ast.Name) and node.args[0].id == 'self'):
       #print("Call: ", ast.dump(node)) 
-      print("Function call is DIRECT call ClassName.methodname(self)")
+      if config.PRINT_DEBUG: print("Function call is DIRECT call ClassName.methodname(self)")
       func_name = self.resolve_self(node.func.attr,self.resolve_base(node.func.value.id))
-      print("2 func_name",func_name)
+      if config.PRINT_DEBUG: print("2 func_name",func_name)
       if func_name in self.function_map.keys(): 
         self.new_edge(self.curr_func,func_name,node)
       else:
-        print("Call: ", ast.dump(node))
-        print("Class.func(self) in ",self.curr_func," is something else...\n")
-        print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
+        if config.PRINT_DEBUG: 
+          print("Call: ", ast.dump(node))
+          print("Class.func(self) in ",self.curr_func," is something else...\n")
+          print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
         #sys.exit(0)
     elif (ins(node.func,ast.Attribute) and ins(node.func.value,ast.Name) and node.func.value.id == 'self'):
-      print("Function call is 3")
+      if config.PRINT_DEBUG: print("Function call is 3")
       func_name = self.resolve_self(node.func.attr,self.main_class)
-      print("3 func_name = ", func_name)
+      if config.PRINT_DEBUG: print("3 func_name = ", func_name)
       if func_name in self.function_map.keys(): 
         self.new_edge(self.curr_func,func_name,node);
       else:
-        print("Call: ", ast.dump(node))
-        print("self.func in ",self.curr_func," is something else...\n")
-        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-        #sys.exit(0)
+        if config.PRINT_DEBUG: 
+          print("Call: ", ast.dump(node))
+          print("self.func in ",self.curr_func," is something else...\n")
+          print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
     elif (ins(node.func,ast.Attribute) and ins(node.func.value,ast.Call) and ins(node.func.value.func,ast.Name) and node.func.value.func.id=='super'):
-      print("Function call is 4")
+      if config.PRINT_DEBUG: print("Function call is 4")
       curr_func_split = self.curr_func.split(':')
       #print("curr_func_split ",curr_func_split)
       #for b in self.bases_map:
@@ -117,15 +120,15 @@ class CallGraphAnalyzer(ast.NodeVisitor):
       # X_var = ((X.multiply(X)).mean() - (X.mean()) ** 2
 
       if ins(node.func,ast.Attribute) and ins(node.func.value,ast.Name):
-        print("AEIOU ",self.resolve_base(node.func.value.id))
+        if config.PRINT_DEBUG: print("AEIOU ",self.resolve_base(node.func.value.id))
         #func_name = self.resolve_self(node.func.attr,self.resolve_base(node.func.value.id))
         #print("func_name ", func_name)
         #print("in? ", func_name in self.function_map.keys())
 
-      print("Call: ", ast.dump(node))
-      print("Function call in ",self.curr_func," is something else...\n")
-      print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-      #sys.exit(0)
+      if config.PRINT_DEBUG: 
+        print("Call: ", ast.dump(node))
+        print("Function call in ",self.curr_func," is something else...\n")
+        print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 
     super(CallGraphAnalyzer, self).generic_visit(node);    
 
@@ -143,7 +146,7 @@ class CallGraphAnalyzer(ast.NodeVisitor):
       func_ast = self.function_map[func_name]
       self.curr_func = func_name
 
-      print("\n >>> WORKLIST now at: ", func_name)
+      if config.PRINT_DEBUG: print("\n >>> WORKLIST now at: ", func_name)
       #print(ast.dump(func_ast))
       super(CallGraphAnalyzer, self).generic_visit(func_ast)
       
@@ -151,11 +154,11 @@ class CallGraphAnalyzer(ast.NodeVisitor):
     func_list = []
     for full_func_name in self.function_map.keys():
       if the_name == "OrdinalEncoder":
-        print("> ", full_func_name)
+        if config.PRINT_DEBUG: print("> ", full_func_name)
       full_func_name_split = full_func_name.split(':')
       if full_func_name_split[2] == the_name:
         func_list.append(full_func_name)
-    print("resolve_name: func_list = ",func_list)
+    if config.PRINT_DEBUG: print("resolve_name: func_list = ",func_list)
 
     #TODO: 
     return func_list
@@ -196,49 +199,36 @@ def reverseGraph(g):
             rvG.addEdge(graph.Edge(edge.tgt,edge.src,edge.label))
     return rvG
  
-def main(operator_main, fname):
+def main(package_dir, class_name, function_name):
 
     #Analyzer takes main class, e.g., PCA, and main method, e.g., fit and constructs a call graph starting at main method.
-
     # for WINDOWS "C:" is removed at the beginning of the path to avoid Split() issue
     operator_main_func = ""
     operator_main_class = ""
-    nameSeparator = ":" + fname
+    nameSeparator = ":" + function_name
 
-    function_map, bases_map = crawler.get_function_map()
+    function_map, bases_map = crawler.get_function_map(package_dir)
 
-    op = operator_main
+    op = class_name
     ll = []
     kk = []
 
-    ignore_list = ["test_pprint.py"]
-
     for ff in function_map.keys():
       gg = ff.split(":")
-      if op == gg[1] and fname == gg[2]:
-        igg = False
-        for ig in ignore_list:
-          if ig in ff:
-            igg = True
-        if not igg:
-          ll.append(ff)
+      if op == gg[1] and function_name == gg[2]:
+        ll.append(ff)
       if op == gg[1]:
         kk.append(ff)
-
-
-
 
     if len(ll) == 1:
       operator_main_func = ll[0]
       #operator_main_class = ll[0].replace(":fit","")
       operator_main_class = ll[0].replace(nameSeparator,"")
-    #elif True:
-    #  operator_main_func = ll[0]
-    #  operator_main_class = ll[0].replace(nameSeparator,"")
     else:
-      print("BUG?")
-      print(ll,'\n')
-      print(kk)
+      if config.PRINT_DEBUG: 
+        print("BUG?")
+        print(ll,'\n')
+        print(kk)
       if len(ll) == 0: #fit() is inheritted
         class_name = [op]
         found = False
@@ -257,46 +247,40 @@ def main(operator_main, fname):
               bases = reversed(bases_map[base])
               for b in bases:
                 class_name.append(b)
-      else:
-        #operator_main_func = ll[0]
-        #operator_main_class = ll[0].replace(nameSeparator,"")
-        #found = False
-        ...
+
       if found:
         #print("Base_fit =",base_fit)
         operator_main_func = base_fit
         operator_main_class = kk[0].replace(":"+kk[0].split(":")[2],"")
       else:
         found = found
-        #sys.exit(0)
+        assert False, "Could not resolve function name"
 
-    print("\noperator_main_func:", operator_main_func)
-    print("operator_main_class:", operator_main_class)
+    if config.PRINT_DEBUG: 
+      print("\noperator_main_func:", operator_main_func)
+      print("operator_main_class:", operator_main_class)
 
     if op == "CUSTOM":
         operator_main_func = "/PATH_TO/site-packages/sklearn/utils/validation.py:None:_check_large_sparse"
         operator_main_class = "/PATH_TO/site-packages/sklearn/utils/validation.py:None"
 
 
-    analyzer = CallGraphAnalyzer(operator_main_func,operator_main_class,function_map,bases_map);
+    analyzer = CallGraphAnalyzer(operator_main_func,operator_main_class,function_map,bases_map)
     analyzer.solve_worklist()
-    analyzer.call_graph.printGraph()
-    print("operator_main_func:", operator_main_func)
-    print("operator_main_class:", operator_main_class)
-    print("A DAG: ",analyzer.call_graph.isDAG())
-    print("A DAG2 (NOT consider self-loop): ",analyzer.call_graph.isDAG2())
+    analyzer.call_graph.isDAG()
+    analyzer.call_graph.isDAG2()
+
+    if config.PRINT_DEBUG: 
+      analyzer.call_graph.printGraph()
+      print("operator_main_func:", operator_main_func)
+      print("operator_main_class:", operator_main_class)
+      print("A DAG: ",analyzer.call_graph.isDAG())
+      #print("A DAG2 (NOT consider self-loop): ",analyzer.call_graph.isDAG2())
 
     return analyzer
 
-def f():
-  main("PCA")
-
 
 if __name__ == "__main__":
-
-  f()
-  #main(sys.argv[1])
-  print("DONE")
-
+  print("> call_graph.py: NOTHING IS HERE")
 
     

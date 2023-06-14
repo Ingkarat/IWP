@@ -4,7 +4,7 @@ import ast
 import sys
 import os
 
-#import crawler
+import config
 
 def ins(obj,cls):
   return isinstance(obj,cls);
@@ -54,7 +54,7 @@ class SymTableAnalyzer(ast.NodeVisitor):
       else:
         self.sym_table[lhs_str] = [rhs] 
     else:
-        print("BAD ASSIGN: ",ast.unparse(lhs)," = ",ast.unparse(rhs))
+        if config.PRINT_DEBUG: print("BAD ASSIGN: ",ast.unparse(lhs)," = ",ast.unparse(rhs))
 
 class ClosureAnalyzer(ast.NodeVisitor):
   

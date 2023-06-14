@@ -4,6 +4,7 @@ import ast
 import sys
 import os
 
+import config
 import REF_crawler
 import REF_call_graph
 
@@ -79,9 +80,10 @@ class RefImmutabilityAnalyzer(ast.NodeVisitor):
 
   def _Assign_Helper(self, lhs, rhs):
     # store in symbol table only if lhs is a Name or an Attribute self.attr
-    print("\nHere in Assign Helper, lhs = rhs", ast.unparse(lhs)," = ",ast.unparse(rhs))
-    print("\nHere in Assign Helper, recording lhs:",ast.unparse(lhs),"!",ast.dump(lhs))
-    print("\nHere in Assign Helper, recording rhs:",ast.unparse(rhs),ast.dump(rhs))
+    if config.PRINT_DEBUG: 
+      print("\nHere in Assign Helper, lhs = rhs", ast.unparse(lhs)," = ",ast.unparse(rhs))
+      print("\nHere in Assign Helper, recording lhs:",ast.unparse(lhs),"!",ast.dump(lhs))
+      print("\nHere in Assign Helper, recording rhs:",ast.unparse(rhs),ast.dump(rhs))
     self.result_stack.clear()
     self.visit(lhs)
     lh_sides = []
@@ -208,8 +210,9 @@ class RefImmutabilityAnalyzer(ast.NodeVisitor):
 
   def _Actual_Formal_Assign(self, act, formal, call, callee_kind):
     # actual is an Expression, formal is a full string, call is a Call
-    print("Actual_Formal_Assign!!!")
-    print("act: ", ast.unparse(act), "---> formal: ", formal)
+    if config.PRINT_DEBUG: 
+      print("Actual_Formal_Assign!!!")
+      print("act: ", ast.unparse(act), "---> formal: ", formal)
     self.result_stack.append("MARKER")
     self.visit(act)
     lh_sides = []
@@ -236,20 +239,21 @@ class RefImmutabilityAnalyzer(ast.NodeVisitor):
 
   def visit_Call(self, node):
 
-    super(RefImmutabilityAnalyzer, self).generic_visit(node);
-    print("\nRefImmut. Visiting Call: "+ast.unparse(node));
-    print("Call ast dump: "+ast.dump(node))
+    super(RefImmutabilityAnalyzer, self).generic_visit(node)
+    if config.PRINT_DEBUG: 
+      print("\nRefImmut. Visiting Call: "+ast.unparse(node))
+      print("Call ast dump: "+ast.dump(node))
     actuals = node.args
     dealWithAttribute = False
     if ins(node.func,ast.Attribute): # receiver call value.method(...)                                                                                 
       #assert callee_ast.args.args[0].arg == 'self'
       dealWithAttribute = True
-      print("NANITF")
+      if config.PRINT_DEBUG: print("NANITF")
       actuals = [node.func.value]+actuals
 
     return_nodes = []
     if self.curr_func+":"+ast.unparse(node) in self.unresolved:
-      print("> UNRESOLVED")
+      if config.PRINT_DEBUG: print("> UNRESOLVED")
       #WARNING: Assumption of unresolved calls having all mutable args is too strong. Treating them like libcalls poly -> poly
       if self._is_in_blacklist(node):
         for act in actuals:
@@ -260,19 +264,21 @@ class RefImmutabilityAnalyzer(ast.NodeVisitor):
           self._Actual_Formal_Assign(act,None,node,"LIBCALL")
         self._Return_Node(node,return_nodes,None,"LIBCALL")
     elif self.curr_func+":"+ast.unparse(node) in self.libcalls:
-      print("> LIBCALL")
+      if config.PRINT_DEBUG: print("> LIBCALL")
       for act in actuals:
         self._Actual_Formal_Assign(act,None,node,"LIBCALL")
       self._Return_Node(node,return_nodes,None,"LIBCALL")
     else:
-      print("> REGULAR")
-      print("self.curr_func ",self.curr_func)
+      if config.PRINT_DEBUG: 
+        print("> REGULAR")
+        print("self.curr_func ",self.curr_func)
       for callee_edge in self.call_graph.getEdgesFromSource(self.curr_func):       
         if callee_edge.label == node: 
           callee_str = callee_edge.tgt
           callee_ast = self.function_map[callee_str]
-          print("Found a callee: ", callee_str)
-          print("The callee_ast: ", ast.dump(callee_ast.args))
+          if config.PRINT_DEBUG: 
+            print("Found a callee: ", callee_str)
+            print("The callee_ast: ", ast.dump(callee_ast.args))
           formals = callee_ast.args.posonlyargs+callee_ast.args.args
           if hasattr(callee_ast.args,'vararg') and callee_ast.args.vararg != None:
              diff = len(actuals)-len(formals) #varargs
@@ -287,7 +293,7 @@ class RefImmutabilityAnalyzer(ast.NodeVisitor):
             continue
           if len(formals) == 0 and ins(node.func,ast.Attribute) and (node.func.value.id == "config" or node.func.value.id == "rabit"):
             continue
-          if 1:
+          if config.PRINT_DEBUG: 
             print("FFF ", formals)
             for ff in formals: print(ast.dump(ff))
             print("AAA ", actuals)
@@ -742,6 +748,8 @@ def intersect_mod_read(pre_mod_set,pre_read_set):
 
 def main(operator_main):
 
+   # UNUSED CODES BELOW. FOR TESTING AND STUFF
+   
    operators = ['PCA','ExtraTreesClassifier','DecisionTreeClassifier','KNeighborsClassifier','LogisticRegression','GradientBoostingClassifier']
    entry_points = {'PCA':['fit'],'ExtraTreesClassifier':['fit'],'DecisionTreeClassifier':['fit'],'KNeighborsClassifier':['fit'],'LogisticRegression':['fit'],'GradientBoostingClassifier':['fit']}   
 
@@ -827,10 +835,7 @@ def main(operator_main):
             for loc in read_analyzer.result: print("--- ", loc)   
  
 if __name__ == "__main__":
-
-  #main(sys.argv[1])
-  main("???")
-  print("DONE")
+  print("> REF_ref_immutability.py: NOTHING IS HERE")
 
 
     

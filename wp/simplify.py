@@ -251,9 +251,15 @@ def interpret_node_natively(node):
         assert False, "Won't reach here"
       else:
         assert False, "What else? in interpret_node_natively"
+      #print(">> ", ast.dump(node))
+      #print("<< ", ast.unparse(node))
+      #print("!! ", keyName)
       for l in node.func.value.keys:
         #print("> ", ast.dump(l), ast.dump(node.args[0]))
-        if l.value == keyName:
+        if l is None:
+          if keyName is None:
+            result = node.func.value.values[num]
+        elif l.value == keyName:
           result = node.func.value.values[num]
           #print("FOUND:", ast.dump(result))
         num += 1

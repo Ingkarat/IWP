@@ -1,3 +1,5 @@
+import config
+
 class Edge:
   def __init__(self, source, target, data):
     # src and tgt are strings, label is AST node ref
@@ -55,13 +57,15 @@ class Graph:
          if (edge.tgt == target):
            result.append(edge)
     return result
+  
+  def rpl(self, x):
+    return x.replace(config.PATH_SHORTENING,"")
 
   def printGraph(self):
- 
     print("\n Printing the graph: ")    
     for key in self.edges.keys():
       for edge in self.edges[key]:
-        print("Call from ",edge.src," to ",edge.tgt)    
+        print("Call from ",self.rpl(edge.src)," to ",self.rpl(edge.tgt))    
   
 
   #TODO: TEST!!!

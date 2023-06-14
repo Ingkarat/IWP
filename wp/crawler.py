@@ -2,6 +2,8 @@ import ast
 import sys
 import os
 
+import config
+
 def ins(obj,cls):
   return isinstance(obj,cls);
 
@@ -66,19 +68,15 @@ class Crawler(ast.NodeVisitor):
 # Top-level function. Crawls through the sklearn directory and creates a map: 
 # Full_file_path:Class_name:Function_name -> Function_Def AST node
 # If function is not part of a class then Class_name is None 
-def get_function_map():      
-
-  sklearn_dir = "C:/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/sklearn"
-  pytorch_dir = "C:/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/torch"
-  sklearn_pandas_dir = "C:/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/sklearn_pandas"
-  mapie_dir = "C:/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/mapie"
-  analyzing_dir = sklearn_dir
+def get_function_map(package_dir):      
+  
+  global function_map
+  global bases_map
+  function_map = {}
+  bases_map = {}
 
   def inSkiplist(file_name):
-    #skiplist = ["torch/_tensor_docs.py", "torch/_torch_docs.py"]
-    #skiplist = ["numpy/polynomial/_polybase.py", "numpy/testing/"]
-    #skiplist = ["tensorflow/python/framework/config.py"]
-    skiplist = ["sklearn/feature_extraction/tests/test_text.py", "sklearn/preprocessing/tests/test_encoders.py"]
+    skiplist = []
     for s in skiplist:
       if s in file_name:
         return True
@@ -90,13 +88,12 @@ def get_function_map():
 
     return False
 
-  for path, directories, files in os.walk(analyzing_dir):  
-  # for file in os.listdir(sklearn_dir):
-    #if "tests" in path: continue
+  for path, directories, files in os.walk(package_dir):  
+    if "tests" in path: continue
     for file in files:
       if file.endswith(".py"):
         file_name = os.path.join(path, file).replace("\\","/").replace("C:","") # remove "C:" to avoid split() issue
-        print("Analyzing: ",file_name);
+        if config.PRINT_DEBUG: print("Analyzing: ",file_name)
         #if "_test.py" in file_name:
         #  continue
         if inSkiplist(file_name):
@@ -113,11 +110,8 @@ def get_function_map():
 
   #print_map();
   #print_bases()
-  print("\n=== END OF Crawler.py ===\n\n")
+  #print("\n=== END OF Crawler.py ===\n\n")
   return function_map, bases_map 
 
 if __name__ == "__main__":
-  get_function_map()
-  #print_map()
-  #print(bases_map)
-  print("DONE")
+  print("> crawler.py: NOTHING IS HERE")

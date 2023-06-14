@@ -111,6 +111,9 @@ def checkSpecialFunction(function_map):
 			if good:
 				#result[key] = returns
 				if len(returns) != 1:
+					# Not support (for now) when returns have more than one value
+					continue
+				
 					if 0:
 						print(key)
 						print(ast.dump(node))
@@ -121,9 +124,6 @@ def checkSpecialFunction(function_map):
 					if returns[0] == "X" and returns[1] == "y" and node.name == "_identity":
 						continue
 
-					# pandas. skip for now.
-					if key == "/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/pandas/core/computation/pytables.py:PyTablesExprVisitor:_rewrite_membership_op":
-						continue
 					assert False, "Case when returns has more than one value."
 				if len(returns) == 1:
 					r = returns[0]

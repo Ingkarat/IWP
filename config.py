@@ -1,0 +1,4 @@
+PRINT_DEBUG = False
+PRINT_SOME_INFO = False
+PATH_SHORTENING = ""
+IMPL_LIMIT = 200 # default = 200

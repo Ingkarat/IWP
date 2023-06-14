@@ -13,12 +13,15 @@ import ast
 import astor
 import pickle
 
+import sys
+
 import crawler
 import call_graph
 import wp_intra
 import pprint2
 import equality
 import helper
+import config
 
 #import AA_call_graph_alone
 
@@ -43,7 +46,7 @@ from equality import Impl
 #        for each exception in the wps[callee] substitute, then save into wps[caller]
 
 def rpl(x):
-   return x.replace("/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/sklearn","")
+   return x.replace(config.PATH_SHORTENING,"")
 
 
 contain = False
@@ -65,7 +68,6 @@ def containFilteredASTConstant(wp):
 
 global_start_time = 0
 
-after_ref_timer = 0
 global_f_prune = None
 global_check_array = False
 global_disable_staticCE = False
@@ -74,234 +76,107 @@ global_chk_ary = False
 global_chk_ary_name = ""
 
 # f_call_graph_ver: 1 = sklearn, 2 = lightgbm
-def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
-   if 0:
-      import simplify as si
-      x = ast.BinOp(left=ast.Subscript(value=ast.Call(func=ast.Attribute(value=ast.Name(id='linalg', ctx=ast.Load()), 
-         attr='svd', ctx=ast.Load()), args=[ast.Name(id='X', ctx=ast.Load())], keywords=[ast.keyword(arg='full_matrices', value=ast.Constant(value=False))]), 
-      slice=ast.Constant(value=1)), op=ast.Pow(), right=ast.Constant(value=2))
-      print(ast.dump(x))
-      print(ast.unparse(x))
-      y = si.simplify(x)
-      print(pprint.pprint_top(y))
-      return 
+def main(package_dir, package_name, class_name, function_name, XXXXXX):
+
+   pickleWpToFile = False  # WP result to pickle file
+   writeToFile = False  # WP result (and some info) to text file
 
    # ref immutability
-   REF_function_map, REF_bases_map, REF_imports_map, REF_globals_map = REF_crawler.get_function_map()
+   REF_function_map, REF_bases_map, REF_imports_map, REF_globals_map = REF_crawler.get_function_map(package_dir, package_name)
    REF_call_graph_analyzer = REF_call_graph.CallGraphAnalyzer(REF_function_map,REF_bases_map,REF_imports_map,REF_globals_map)
-   REF_call_graph_analyzer.solve_worklist(f_opName,"fit")
-   REF_call_graph_analyzer.call_graph.printGraph()
-   print("\n Num calls: ",REF_call_graph_analyzer.num_calls," and num UNRESOLVED ",REF_call_graph_analyzer.num_unresolved, " and num LIBCALLS ", REF_call_graph_analyzer.num_libcalls) 
-   print("A DAG: ",REF_call_graph_analyzer.call_graph.isDAG())
+   REF_call_graph_analyzer.solve_worklist(class_name,function_name)
+   if config.PRINT_DEBUG:
+      REF_call_graph_analyzer.call_graph.printGraph()
+      print("\n Num calls: ",REF_call_graph_analyzer.num_calls," and num UNRESOLVED ",REF_call_graph_analyzer.num_unresolved, " and num LIBCALLS ", REF_call_graph_analyzer.num_libcalls) 
+      print("A DAG: ",REF_call_graph_analyzer.call_graph.isDAG())
 
    immutability_analyzer = REF_ref_immutability.RefImmutabilityAnalyzer(REF_call_graph_analyzer.call_graph,REF_call_graph_analyzer.unresolved,REF_call_graph_analyzer.libcalls,REF_function_map)
    immutability_analyzer.collect_constraints()
    immutability_analyzer.solve_constraints()
 
-   print("\n\n\n ================== END OF GLOBAL REF IMMU ================== \n\n\n")
-   global after_ref_timer
-   after_ref_timer = timer()
+   #print("\n\n\n ================== END OF GLOBAL REF IMMU ================== \n\n\n")
 
-
-   #function_map, base_map = crawler.get_function_map();
-   opName = f_opName
-   skipUtilsValidation = f_skipUtilsValidation
-   call_graph_ver = f_call_graph_ver
-
-   # fit, predict
-   fname = f_name
-   if call_graph_ver == 1:
-      graph_analyzer = call_graph.main(opName, fname)
-   elif call_graph_ver == 2 or call_graph_ver == 3:
-      assert False, "only 1 ver. of call graph (currently)"
-      graph_analyzer = AA_call_graph_alone.main(opName)
-   else:
-      assert False, "Invalid call graph version."
-
+   graph_analyzer = call_graph.main(package_dir, class_name, function_name)
    function_map = graph_analyzer.function_map
    base_map = graph_analyzer.bases_map
 
-   if call_graph_ver == 1:
-      reversed_DAG = call_graph.reverseGraph(graph_analyzer.call_graph)
-      reversed_topo = graph_analyzer.call_graph.reversedTopo() # have to call isDAG2() beforehand. In this case it's called in call_graph.main()
-   elif call_graph_ver == 2 or call_graph_ver == 3:
-      assert False, "only 1 ver. of call graph (currently)"
-      reversed_DAG = AA_call_graph_alone.reverseGraph(graph_analyzer.call_graph)
-      reversed_topo = graph_analyzer.call_graph.reversedTopo() # have to call isDAG2() beforehand. In this case it's called in AA_call_graph.main()
-   else:
-      assert False, "Invalid call graph version."
+   reversed_DAG = call_graph.reverseGraph(graph_analyzer.call_graph)
+   reversed_topo = graph_analyzer.call_graph.reversedTopo() # have to call isDAG2() beforehand. In this case it's called in call_graph.main()
 
-   if 0: # Intra for check_array()
-      rt = "/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/sklearn/utils/validation.py:None:_ensure_sparse_format"
-      intra_analyzer = wp_intra.Analyzer(rt, {}, function_map)
-      intra_analyzer.visit_FunctionDef(function_map[rt])
-
-      analyzer_list = [intra_analyzer]
-
-      print("\n\n============= Displaying results =============")
-      main_analyzer = analyzer_list[-1]
-      main_wps = main_analyzer.wps
-      count = 0
-      for wp in main_wps.keys():
-         print("\n",count+1)
-         print("[WP]:\n\t", pprint.pprint_top(main_wps[wp]))
-         print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n")
-         if 0:
-            call_path = [rpl(wp[1])]
-            num = 3
-            while num < len(wp):
-               call_path.append(rpl(wp[num]))
-               num += 3
-            call_path = list(reversed(call_path))
-            print("> Call path:",call_path)
-         num = len(wp) - 3
-         while num > 1:
-            print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]))
-            print("[Call node]:\n\t", ast.dump(wp[num]))
-            print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t")
-            num -= 3
-
-         count += 1
-
-      return 
-
-   if len(reversed_topo) == 0:
+   if len(reversed_topo) == 0:  # Add main_func if call graph is empty
       reversed_topo.append(graph_analyzer.main_func)
 
-   removed_topo = []
-   if skipUtilsValidation:
-      for rt in reversed_topo:
-         if "/utils/validation.py:" in rt:
-            removed_topo.append(rt)
-      for rm in removed_topo:
-         reversed_topo.remove(rm)
+   if config.PRINT_SOME_INFO:
+   #print("\n\n============== wp_inter.py ==============")
+      print("Reversed Topo (order of analyzing):")
+      for rr in reversed_topo:
+         print("> ", rpl(rr))
 
-
-   print("\n\n============== wp_inter.py ==============")
-   print("Reversed Topo:\n")
-   for rr in reversed_topo:
-      print("> ", rpl(rr))
-   print("Reversed DAG:")
-   #reversed_DAG.printGraph()
-   #reversed_DAG.printGraphLabel()
-   #print("..")
-   
    # Function that return some of unmodified parameters. Eg. _check_solver
-   print("=== checkSpecialFunction ===")
-   helper_function = helper.checkSpecialFunction(function_map)
+   if package_name == "sklearn":
+      helper_function = helper.checkSpecialFunction(function_map)
+   else:
+      helper_function = {}
+
+   # TODO: revisit comments in this file. They are from previous iteration
    
-   #print(helper_function)
-   #return
-
-
    # initializes the Function visitor with the function name and an empty map for now. So just propagates raises intraprocedurally
    # The idea is that we'll analyze Calls and propagate the raises in callee function up the caller
    # The map argument will be a map from a Call ast node to a WP formula _after_ substitution of actuals for formals
    # FunctionDef will take that formula and propagate intraprocedurally   
-   # TODO: Have to change the wp map in Analyzer... Currently it maps each node to a SINGLE WP formula. But a function can have more than one formulas
+   # ...: Have to change the wp map in Analyzer... Currently it maps each node to a SINGLE WP formula. But a function can have more than one formulas
    # have to figure out how to propagate those
-
-   if 0:
-      print("\n\n\n")
-      print(">>> Start")
-      for key in function_map.keys():
-         #if function_map[key].args.vararg:
-         if function_map[key].args.kwarg:
-            print(function_map[key].args.kwarg.arg, rpl(key))
-            #print(ast.dump(function_map[key].args))
-      print(">>> End")
-      return
-
-      for key in function_map.keys():
-         if "validation.py" in key:
-            if "check_array" in key:
-               print(key)
-               print(ast.dump(function_map[key]))
-               print("")
-               print(ast.dump(function_map[key].args))
-
- 
-   #wp_intra_analyzer = wp_intra.Analyzer(func,{})
-   #wp_intra_analyzer.visit_FunctionDef(function_map[func])
 
    # Probably best to run first with func,{} to get all immediate exceptions raised in func. 
    # Then look at call graph and get exceptions for callees. For each one initialize with func, {Call ast, wp_formula} one by one.
    # The call graph gives you info about the Call ast node, so we can record immediately
 
-   for rt in reversed_topo:
-      print("> At node:",rpl(rt))
-      call_edge = reversed_DAG.getEdgesFromSource(rt)
-      for ce in call_edge:
-         print("S = ",rpl(ce.src))
-         print("T = ",rpl(ce.tgt))
-         print("Label = ",ast.dump(ce.label))
+   if config.PRINT_DEBUG:
+      for rt in reversed_topo:
+         print("> At node:",rpl(rt))
+         call_edge = reversed_DAG.getEdgesFromSource(rt)
+         for ce in call_edge:
+            print("S = ",rpl(ce.src))
+            print("T = ",rpl(ce.tgt))
+            print("Label = ",ast.dump(ce.label))
+
 
    # Map func name to wp_intra.Analyzer
    analyzer_map = {}
    # List of analyers
    analyzer_list = []
-
    skip_selfloop = False
 
 
-   print("================")
-
-
-
    for rt in reversed_topo:
-      if f_call_graph_ver == 1:
+      
+      if config.PRINT_SOME_INFO: 
          print("\n\n************ Working At node:",rpl(rt))
-
-      #print("\n\n************ Working At node:",rpl(rt), file = f)
-      #intra_analyzer = wp_intra.Analyzer(rt,{},[])
-      #intra_analyzer.visit_FunctionDef(function_map[rt])
-
-      if rpl(rt) == "/base.py:None:clone":
-         print("SELF-LOOP at /base.py:None:clone. SKIPPING THIS NODE FOR NOW")
-         #print("SELF-LOOP at /base.py:None:clone. SKIPPING THIS NODE FOR NOW", file = f)
-         intra_analyzer = wp_intra.Analyzer(rt, {}, function_map, {}, helper_function, f_simplify
-            , REF_call_graph_analyzer, REF_function_map, immutability_analyzer, {})
-         intra_analyzer.visit_FunctionDef(function_map[rt])
-         analyzer_list.append(intra_analyzer)
-         skip_selfloop = True
-         continue
-
-      if rpl(rt) == "/utils/__init__.py:None:_determine_key_type":
-         print("SELF-LOOP at /utils/__init__.py:None:_determine_key_type. SKIPPING THIS NODE FOR NOW")
-         #print("SELF-LOOP at /utils/__init__.py:None:_determine_key_type. SKIPPING THIS NODE FOR NOW", file = f)
-         intra_analyzer = wp_intra.Analyzer(rt, {}, function_map, {}, helper_function, f_simplify
-            , REF_call_graph_analyzer, REF_function_map, immutability_analyzer, {})
-         intra_analyzer.visit_FunctionDef(function_map[rt])
-         analyzer_list.append(intra_analyzer)
-         skip_selfloop = True
-         continue
 
       all_kwarg_default = {}
       callee_ALL_wps = {}
       callee_REF_soundness_flag = {}
       call_edges = reversed_DAG.getEdgesToTarget(rt)
-      print("Len is",len(call_edges))
+      if config.PRINT_SOME_INFO: 
+         print("Len is",len(call_edges))
       for ce in call_edges:
          callee = ce.src
-         print(">")
-         print(ce.src)
-         print(ce.tgt)
-         print(ast.dump(ce.label))
+         if config.PRINT_SOME_INFO: 
+            print(">")
+            print(ce.src)
+            print(ce.tgt)
+            print(ast.dump(ce.label))
          # get analyzer for callee (ce.src). There can be only 1 analyzer for each function
          callee_analyzer = None
          for al in analyzer_list:
             if al.func_name == ce.src:
                callee_analyzer = al
 
-         if not skipUtilsValidation:
-            assert callee_analyzer is not None
-         else:
-            if callee_analyzer is None:
-               continue
 
          callee_wps = callee_analyzer.wps
-         print("__")
-         print(callee_wps)
+         #print("__")
+         #print(callee_wps)
+         
          for key in callee_wps.keys():
             key_added = key
             key_append = [ce.label, rt, callee] # call node, caller f name, callee f name
@@ -316,16 +191,9 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
             all_kwarg_default[key_added] = callee_analyzer.kwargDefault[key]
 
 
-      intra_analyzer = wp_intra.Analyzer(rt, callee_ALL_wps, function_map, all_kwarg_default, helper_function, call_graph_ver
+      intra_analyzer = wp_intra.Analyzer(rt, callee_ALL_wps, function_map, all_kwarg_default, helper_function
          , REF_call_graph_analyzer, REF_function_map, immutability_analyzer, callee_REF_soundness_flag)
       intra_analyzer.visit_FunctionDef(function_map[rt])
-
-      if 0:
-         impl_limit = 200
-         msg = "FILTERED WP. IT HAS > " + str(impl_limit) + " IMPLICATIONS AT SOME POINT."
-         for wp in intra_analyzer.wps.keys():
-            if helper.impl_counter(intra_analyzer.wps[wp]) >= impl_limit:
-               intra_analyzer.wps[wp] = ast.Constant(value = msg)
 
       # Heuristic (hack!?) for the specific exeption
       # Simplify it to be >>>   sp.issparse(array)  =>  NOT(accept_sparse Is False)   <<<
@@ -346,10 +214,10 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
    print("\n\n============= Displaying results =============")
 
    ONLY_SPARSE_EXCEPTION = False
-
-   PRINTFILE = True
-   writeToFile = PRINTFILE
-   haveDictDump = ""
+   
+   #TODO: THIS
+   f_simplify = True
+   opName = "???"
 
    if f_simplify:
       if global_f_prune:
@@ -417,22 +285,15 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
    numNoCASoundNotTrue = 0
    numNoCAUnSoundNotTrue = 0
 
+   #TODO: THIS
+   outputName1 = "/Users/ingkarat/Documents/GitHub/IWP/output/a"
+   outputName2 = "/Users/ingkarat/Documents/GitHub/IWP/output/b"
 
    with open(outputName1, "w") as f1, open(outputName2,"w") as f2:
       main_analyzer = analyzer_list[-1]
       main_wps = main_analyzer.wps
       count = 0
       for wp in main_wps.keys():
-         if 0: # move this to wp_intra._FunctionDef_Helper
-            haveDict = False
-            for f in ast.walk(main_wps[wp]):
-               if wp_intra.ins(f,ast.Dict):
-                  haveDict = True
-                  break
-            if haveDict:
-               haveDictDump += rpl(wp[1]) + "\n---\n" + ast.dump(wp[0]) + "\n~~~\n" + pprint2.pprint_top(main_wps[wp]) + "\n==================================\n"
-               main_wps[wp] = wp_intra.replace_dict(main_wps[wp])
-
          print("\n",count+1)
          print("[IMPL COUNT]:",helper.impl_counter(main_wps[wp]))
          print("[SN_FLAG]: ", main_analyzer.REF_soundness_flag[wp])
@@ -539,6 +400,8 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
 
          count += 1
 
+      assert False, "SO FAR SO GOOD (WORKING ON RESULT PATHS)"
+
       main_kwargDefaults = main_analyzer.kwargDefault
       count = 0
       for k in main_kwargDefaults.keys():
@@ -554,11 +417,6 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
                num -= 3
          count += 1
 
-      if skip_selfloop:
-         print("\n\n\n Note: SELF-LOOP at /base.py:None:clone. SKIPPING THIS NODE FOR NOW")
-         if writeToFile:
-            print("\n\n\n Note: SELF-LOOP at /base.py:None:clone. SKIPPING THIS NODE FOR NOW", file = f1)
-            print("\n\n\n Note: SELF-LOOP at /base.py:None:clone. SKIPPING THIS NODE FOR NOW", file = f2)
 
    if f_simplify:
       if global_f_prune:
@@ -596,8 +454,6 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
    if global_chk_ary:
       outputName3 = "output_time/chk_ary/pkl/" + opName + ".pkl"
 
-
-   pickleWpToFile = True
 
    if global_chk_ary:
       pickleWpToFile = False
@@ -685,7 +541,6 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
          print("Total exceptions: " + str(numTotal).zfill(2) + "\t" + "True: " + str(numTrue).zfill(2) + "\t" + "NotTrue: " + str(numNotTrue)
                + "\t- " + f_opName + "(" + fname + ")", file = fs)
 
-   print("\n\nhaveDictDump:\n", haveDictDump)
 
 
 
@@ -697,6 +552,7 @@ def main(f_opName, f_name, f_skipUtilsValidation, f_simplify, f_call_graph_ver):
 
 if __name__ == "__main__":
 
+   #main(1,2,3,4,5)
 
    # we apply SIMPLIFY to all runs because it should be
    # 1 plain = no CE + no prune    in "noCE" folder
@@ -708,7 +564,6 @@ if __name__ == "__main__":
    
    #f_name = "check_array"
    f_name = "fit"
-   f_skipUtilsValidation = False
    f_call_graph_ver = 1
 
    f_simplify = True # (mean CE) Currenly this flag only change the file name. There are too many places to apply. Just go directly to def simplify() and dont call interpret_node_natively

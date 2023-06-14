@@ -6,11 +6,13 @@ import os
 import shutil
 import copy
 import pprint2
+
 import simplify as si
 import equality
 import hacks
 import raise_analysis
 import helper
+import config
 
 import REF_ref_immutability
 
@@ -24,11 +26,11 @@ def ins(obj,cls):
 
 def occurs_in_formula(wp,target):
   if ins(wp,ast.Name): 
-    return equality.compare(wp,target);
+    return equality.compare(wp,target)
   elif ins(wp,ast.Attribute) and ins(wp.value,ast.Name) and wp.value.id == 'self':
-    return equality.compare(wp,target); 
+    return equality.compare(wp,target)
   elif ins(wp,ast.Attribute) and ins(wp.value,ast.Name) and wp.value.id == 'sparse': #check sparse.issparse()
-    return equality.compare(wp,target);
+    return equality.compare(wp,target)
   if ins(wp,ast.Subscript): #probably not the most precise way
     return equality.compare(wp,target)
   else:
@@ -37,12 +39,12 @@ def occurs_in_formula(wp,target):
     for attr in wp.__dict__.keys():
       if ins(wp.__dict__[attr],ast.AST):
         if occurs_in_formula(wp.__dict__[attr],target):
-          return True;
+          return True
       elif ins(wp.__dict__[attr],list):
         for elt in wp.__dict__[attr]:
            if occurs_in_formula(elt,target): 
-             return True;
-    return False;
+             return True
+    return False
 
 # requires: target is either a name or an attribute of self.
 # replaces every occurrence of target with expr in wp
@@ -61,15 +63,15 @@ def replace_in_formula_REC(wp,target,expr):
 
   if ins(wp,ast.Name): # found a variable!
     if equality.compare(wp,target): # ins(target,ast.Name) and wp.id == target.id:
-      return copy.deepcopy(expr);
+      return copy.deepcopy(expr)
     else:
       return copy.deepcopy(wp);
   elif ins(wp,ast.Attribute) and ins(wp.value,ast.Name) and wp.value.id == 'self': # searching for a ref to self.attr
     if equality.compare(wp,target):
       # print("I am HERE, replacing :", ast.dump(wp), "with", ast.dump(target));
-      return copy.deepcopy(expr); # need a deep copy
+      return copy.deepcopy(expr) # need a deep copy
     else:
-      return copy.deepcopy(wp); 
+      return copy.deepcopy(wp) 
   else:
     #wp_replace = copy.deepcopy(wp);
     wp_replace = copy.copy(wp)
@@ -77,16 +79,16 @@ def replace_in_formula_REC(wp,target,expr):
       return wp_replace
     for attr in wp.__dict__.keys():
       if ins(wp.__dict__[attr],ast.AST):
-        attr_replace = replace_in_formula_REC(wp.__dict__[attr],target,expr);
-        wp_replace.__dict__[attr] = attr_replace;
+        attr_replace = replace_in_formula_REC(wp.__dict__[attr],target,expr)
+        wp_replace.__dict__[attr] = attr_replace
       elif ins(wp.__dict__[attr],list):
         new_list = [];
         for elt in wp.__dict__[attr]:
-           elt_replace = replace_in_formula_REC(elt,target,expr);
-           new_list.append(elt_replace);
-        wp_replace.__dict__[attr] = new_list;
-    wp_replace = simplify(wp_replace);
-    return wp_replace;
+           elt_replace = replace_in_formula_REC(elt,target,expr)
+           new_list.append(elt_replace)
+        wp_replace.__dict__[attr] = new_list
+    wp_replace = simplify(wp_replace)
+    return wp_replace
 
 # Wrapper to set the limit
 def replace_in_formula(wp,target,expr):
@@ -94,7 +96,7 @@ def replace_in_formula(wp,target,expr):
   # f_prune
   #if 1:
   if 1:
-    impl_limit = 200   # 200
+    impl_limit = config.IMPL_LIMIT   # default = 200
     msg = "FILTERED WP. IT HAS > " + str(impl_limit) + " IMPLICATIONS AT SOME POINT."
     if helper.impl_counter(wp_new) >= impl_limit:
       wp_new = ast.Constant(value = msg)
@@ -130,7 +132,7 @@ print_stuff = False
 
 # TOPPPPPP
 class Analyzer(ast.NodeVisitor):
-    def __init__(self,func_name,wps,function_map, kwarg_defaults, helper_function, f_call_graph_ver
+    def __init__(self,func_name,wps,function_map, kwarg_defaults, helper_function
         , REF_call_graph_analyzer, REF_function_map, immutability_analyzer, callee_REF_soundness_flag):
       # function under analysis: fully qualified name: file:[Class|None]:name
       self.func_name = func_name
@@ -159,8 +161,6 @@ class Analyzer(ast.NodeVisitor):
       # Function that return some of unmodified parameters. Eg. _check_solver
       self.helper_function = helper_function
 
-      # 1 = sklearn, 2 = lightgbm
-      self.call_graph_ver = f_call_graph_ver
 
       # For ref immutability (also the function map might be redundant?)
       self.REF_call_graph_analyzer = REF_call_graph_analyzer
@@ -514,8 +514,8 @@ class Analyzer(ast.NodeVisitor):
         old_flag = S_post
         self.curr_SN_flag = S1 and S2 and (not intersect)
 
-        print("\n======> REF IMM (IF)")
         if print_stuff:
+          print("\n======> REF IMM (IF)")
           print("E (test): ", ast.unparse(REF_E))
           print("mod(E):")
           for loc in mod_set: print("--- ",loc) 

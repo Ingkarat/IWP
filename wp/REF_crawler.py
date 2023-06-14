@@ -2,6 +2,8 @@ import ast
 import sys
 import os
 
+import config
+
 def ins(obj,cls):
   return isinstance(obj,cls);
 
@@ -103,7 +105,7 @@ class Crawler(ast.NodeVisitor):
           bases_list.append(base.id);
         elif ins(base,ast.Attribute): #TODO: Revisit
           bases_list.append(base.attr)
-          print("HERE I AM: Attribute base: ",ast.unparse(base))
+          if config.PRINT_DEBUG: print("HERE I AM: Attribute base: ",ast.unparse(base))
       bases_map[self.module+":"+node.name] = bases_list;
       super(Crawler, self).generic_visit(node);
       self.class_stack.pop();
@@ -118,7 +120,7 @@ class Crawler(ast.NodeVisitor):
         #print(func_name)
         #assert False
       if func_name in function_map.keys():
-        print("WARNING: redefinition: ", func_name)
+        if config.PRINT_DEBUG: print("WARNING: redefinition: ", func_name)  # TODO: resolve redefinition
       function_map[func_name] = node
       self.func_stack.append(node.name);
       super(Crawler, self).generic_visit(node);
@@ -166,44 +168,39 @@ class Crawler(ast.NodeVisitor):
 # Top-level function. Crawls through the sklearn directory and creates a map: 
 # Full_file_path:Class_name:Function_name -> Function_Def AST node
 # If function is not part of a class then Class_name is None 
-def get_function_map():      
+def get_function_map(package_dir, package_name):  
+  global function_map
+  global bases_map
+  global imports_map
+  global globals_map
 
-  package_dir = "/PATH_TO/site-packages/sklearn/"
-  package_name = "sklearn"
+  function_map = {}
+  bases_map = {}
+  imports_map = {}
+  globals_map = {}
 
   def inSkiplist(file_name):
-    #skiplist = ["torch\\_tensor_docs.py", "torch\\_torch_docs.py"]
-    #skiplist = ["numpy\\polynomial\\_polybase.py", "numpy\\testing\\"]
-    #skiplist = ["tensorflow\\python\\framework\\config.py"]
-    skiplist = ["sklearn\\feature_extraction\\tests\\stest_text.py", "sklearn\\preprocessing\\tests\\test_encoders.py"]
+    skiplist = []
     for s in skiplist:
       if s in file_name:
         return True
 
-    # numpy
+    # numpy. Skip testing files
     if "/Lib/site-packages/numpy" in file_name:
       if "test_" in file_name:
         return True
 
-    # tensorflow
-
-
     return False
 
-  #PANIC, REMOVE THIS
-  return function_map, bases_map, imports_map, globals_map  
-
   for path, directories, files in os.walk(package_dir):  
-  # for file in os.listdir(sklearn_dir):
-    #if "tests" in path: continue
+    
+    # To skip "tests" directory in sklearn
+    if "tests" in path: continue
+    
     for file in files:
       if file.endswith(".py"):
         file_name = os.path.join(path, file)
-        print("Analyzing: ",file_name);
-        #if "save_test.py" in file_name: # Chinese characters => UnicodeDecodeError
-        #  continue
-        #if "_test.py" in file_name:
-        #  continue
+        if config.PRINT_DEBUG: print("Analyzing: ",file_name)
         if inSkiplist(file_name):
           continue
 
@@ -216,10 +213,10 @@ def get_function_map():
           print("Oops, Syntax error: ")
           assert False, "REF_crawler.py SyntaxError"
 
-  print_simple_map(function_map);
+  #print_simple_map(function_map)
   #print_map(bases_map);
   return function_map, bases_map, imports_map, globals_map 
 
 if __name__ == "__main__":
-  get_function_map()
-  print("DONE")
+  #get_function_map()
+  print("> REF_crawler.py: NOTHING IS HERE")
