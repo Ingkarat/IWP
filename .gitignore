@@ -13,3 +13,6 @@ wp/testing2.py
 wp/tt4WP.py
 wp/AA_*
 experiment/scripts/inter_sparse_main.py
+output/
+output/.DS_Store
+.DS_Store

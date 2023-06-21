@@ -3,6 +3,7 @@ import copy
 import equality as eq
 import hacks
 import warnings
+import config
 
 from hacks import TRUE
 from hacks import FALSE
@@ -277,7 +278,8 @@ def interpret_node_natively(node):
       if code != "None.kind":
         exec('import numpy as np; global val; val = '+code)
       else:
-        print("?????????????????? in simplify.py")
+        if config.PRINT_SOME_INFO:
+          print("?????????????????? in simplify.py")
     except AttributeError:
       pass
     except IndexError:

@@ -128,7 +128,6 @@ def replace_dict(wp):
     wp_replace = simplify(wp_replace)
     return wp_replace
 
-print_stuff = False
 
 # TOPPPPPP
 class Analyzer(ast.NodeVisitor):
@@ -221,9 +220,10 @@ class Analyzer(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
 
       #print(ast.dump(node))
-      print("\n\nAT visit_FunctionDef:")
-      print(node.name)
-      print(self.func_name)
+      if config.PRINT_SOME_INFO:
+        print("\n\nAT visit_FunctionDef:")
+        print(node.name)
+        print(self.func_name)
 
       fname = ""
       if ";" in self.func_name: # for lgbm where f-in-f is separatedby ;
@@ -256,14 +256,16 @@ class Analyzer(ast.NodeVisitor):
 
       for key in self.wps.keys():
         if len(key) == 2:
-          print("..")
-          print(key)
+          if config.PRINT_DEBUG:
+            print("..")
+            print(key)
           curr_node = key[0]
-          if print_stuff: print("\n\nEXCEPTION:", ast.dump(curr_node))
+          if config.PRINT_DEBUG: print("\n\nEXCEPTION:", ast.dump(curr_node))
         else:
           curr_node = key[-3]
-          if print_stuff: print("\n\nCALL:", ast.dump(curr_node))
-          print("!!! key:", key)
+          if config.PRINT_DEBUG: 
+            print("\n\nCALL:", ast.dump(curr_node))
+            print("!!! key:", key)
 
         self.curr_ast_node = curr_node
         self.curr_ast_node_key = key
@@ -271,7 +273,7 @@ class Analyzer(ast.NodeVisitor):
 
       if 0:
         for curr_node in self.wps.keys(): # This will have call_node too
-          if print_stuff: print("\n\nEXCEPTION:", ast.dump(curr_node))
+          if config.PRINT_DEBUG: print("\n\nEXCEPTION:", ast.dump(curr_node))
           self.curr_ast_node = curr_node;
           self._FunctionDef_Helper(node);
 
@@ -309,14 +311,15 @@ class Analyzer(ast.NodeVisitor):
         self.wps[self.curr_ast_node_key] = wp
         self.REF_soundness_flag[self.curr_ast_node_key] = self.curr_SN_flag
 
-        print('\nThe END of Function ',self.func_name,' and exception/call ',ast.dump(self.curr_ast_node),'\n')
-        if ins(self.curr_ast_node, ast.Call):
-          print("Exception =", ast.dump(exact_exception))
-        print("Soundness Flag =", self.curr_SN_flag)
-        # print('\nWP (AST dump):', ast.dump(wp),"\n");
-        if print_stuff: print('WP:', pprint2.pprint_top(wp));
-        #print(ast.dump(wp))
-        if unsound: print('WARNING: Weakest preconditions may be UNSOUND!');
+        if config.PRINT_SOME_INFO:
+          print('\nThe END of Function ',self.func_name,' and exception/call ',ast.dump(self.curr_ast_node),'\n')
+          if ins(self.curr_ast_node, ast.Call):
+            print("Exception =", ast.dump(exact_exception))
+          print("Soundness Flag =", self.curr_SN_flag)
+          # print('\nWP (AST dump):', ast.dump(wp),"\n");
+          if config.PRINT_DEBUG: print('WP:', pprint2.pprint_top(wp));
+          #print(ast.dump(wp))
+          if unsound: print('WARNING: Weakest preconditions may be UNSOUND!');
       #else:
       #  print("MAIN: WP = TRUEEEEEE");
 
@@ -363,12 +366,12 @@ class Analyzer(ast.NodeVisitor):
         # We don't care if the current WP is TRUE.
         if self.stack==[] or equality.compare(self.stack[-1],TRUE): return; # TODO: GLOBAL ASSIGNMENTS!!! or TRUE
         post = self.stack.pop();
-        #if print_stuff: print('In visit_Assign post is: ',ast.dump(post));
-        if print_stuff: print('In visit_Assign, Before: ',pprint2.pprint_top(post));
+        #if config.PRINT_DEBUG: print('In visit_Assign post is: ',ast.dump(post));
+        if config.PRINT_DEBUG: print('In visit_Assign, Before: ',pprint2.pprint_top(post));
         wp = post;
         assert len(node.targets) <= 1
         for target in node.targets:        
-           print('Replacing: ',ast.dump(target)," with ",ast.dump(node.value));
+           if config.PRINT_SOME_INFO: print('Replacing: ',ast.dump(target)," with ",ast.dump(node.value));
            # it is guaranteed that node.targets is of length 1
            # TODO: Added heuristic to NOT replace X or y lhs. 
            if (ins(target,ast.Name) and target.id=='X') or (ins(target,ast.Name) and target.id=='y'):
@@ -390,7 +393,7 @@ class Analyzer(ast.NodeVisitor):
               wp = replace_in_formula(wp, target, replacement)
              elif RHSisDict:
               replacement = helper.dictToAstDict(node.value)
-              print('^ ignore above, Replacing: ',ast.dump(target)," with ",ast.dump(replacement))
+              if config.PRINT_SOME_INFO: print('^ ignore above, Replacing: ',ast.dump(target)," with ",ast.dump(replacement))
               wp = replace_in_formula(wp, target, replacement)
               #print(">>>>>>", pprint2.pprint_top(wp))
 
@@ -414,14 +417,14 @@ class Analyzer(ast.NodeVisitor):
             for elt in node.value.elts:
               param_sub = ast.Subscript(value=ast.Name(id=node.targets[0].id),slice=ast.Constant(value=num))
               num += 1
-              print("[Assignment - RHS is Tuple, Trying to assign each elt to LHS[n]] param: ", ast.unparse(param_sub), "with value: ", ast.dump(elt))
+              if config.PRINT_SOME_INFO: print("[Assignment - RHS is Tuple, Trying to assign each elt to LHS[n]] param: ", ast.unparse(param_sub), "with value: ", ast.dump(elt))
               if occurs_in_formula(wp, param_sub):
                 wp = replace_in_formula(wp, param_sub, elt)
 
            # debugging code...
            if not (equality.compare(post,TRUE)) and not (ins(target,ast.Name) or (ins(target,ast.Attribute) and ins(target.value,ast.Name) and target.value.id == 'self')):
-             if print_stuff: print("Aliasing node? ", ast.dump(node));  
-        if print_stuff: print('After: ',pprint2.pprint_top(wp));
+             if config.PRINT_DEBUG: print("Aliasing node? ", ast.dump(node));  
+        if config.PRINT_DEBUG: print('After: ',pprint2.pprint_top(wp));
 
         REF_RHS = node.value
         REF_Qpre = wp
@@ -432,8 +435,8 @@ class Analyzer(ast.NodeVisitor):
         old_flag = self.curr_SN_flag
         self.curr_SN_flag = self.curr_SN_flag and (not intersect)
 
-        print("\n======> REF IMM (Assign)")
-        if print_stuff:
+        if config.PRINT_DEBUG:
+          print("\n======> REF IMM (Assign)")
           print("RHS: ", ast.unparse(REF_RHS))
           print("mod(RHS):")
           for loc in mod_set: print("--- ",loc) 
@@ -448,15 +451,16 @@ class Analyzer(ast.NodeVisitor):
         assert len(self.stack) == 1
            
         if len(mod_set) != 0:
-          for loc in mod_set: print("--- ",loc) 
+          if config.PRINT_DEBUG: 
+            for loc in mod_set: print("--- ",loc) 
           assert False        
 
     def visit_If(self, node):
         #expr test, stmt* body, stmt* orelse
-        if print_stuff: print("\nIn visit_IF: ",ast.dump(node));
+        if config.PRINT_DEBUG: print("\nIn visit_IF: ",ast.dump(node));
         post = self.stack[-1];
         S_post = self.curr_SN_flag
-        if print_stuff: print('IF Before: ',pprint2.pprint_top(post));
+        if config.PRINT_DEBUG: print('IF Before: ',pprint2.pprint_top(post));
         self.Body_Helper(node.body);
         wp1 = self.stack.pop();
         S1 = self.curr_SN_flag
@@ -468,7 +472,7 @@ class Analyzer(ast.NodeVisitor):
         wp2 = self.stack.pop();
         S2 = self.curr_SN_flag
         
-        if print_stuff:
+        if config.PRINT_DEBUG:
           #print('\nBefore, wp1:', ast.dump(wp1),"... and ...",pprint2.pprint_top(wp1));
           #print('Before, wp2:', ast.dump(wp2),"... and ...",pprint2.pprint_top(wp2));
           print('\nBefore, wp1:', pprint2.pprint_top(wp1));
@@ -501,9 +505,9 @@ class Analyzer(ast.NodeVisitor):
           wp = si.cons_impl(node.test,wp1); # ast.BoolOp(op=Impl(),values=[node.test,wp1]);       
         else:       
           wp = si.factor_out(node.test,wp1,wp2);
-        #if print_stuff: print('\nIn visit_IF WP is: ',ast.dump(wp));
-        #if print_stuff: print('\nIn visit_IF WP is: ',pprint2.pprint_top(wp));
-        if print_stuff: print('IF After: ',pprint2.pprint_top(wp));
+        #if config.PRINT_DEBUG: print('\nIn visit_IF WP is: ',ast.dump(wp));
+        #if config.PRINT_DEBUG: print('\nIn visit_IF WP is: ',pprint2.pprint_top(wp));
+        if config.PRINT_DEBUG: print('IF After: ',pprint2.pprint_top(wp));
 
         REF_E = node.test
         REF_Qpre = wp
@@ -514,7 +518,7 @@ class Analyzer(ast.NodeVisitor):
         old_flag = S_post
         self.curr_SN_flag = S1 and S2 and (not intersect)
 
-        if print_stuff:
+        if config.PRINT_DEBUG:
           print("\n======> REF IMM (IF)")
           print("E (test): ", ast.unparse(REF_E))
           print("mod(E):")
@@ -534,7 +538,7 @@ class Analyzer(ast.NodeVisitor):
     def visit_Raise(self, node):
       #print("\nRaise: ",ast.dump(node, include_attributes=True));
       if node == self.curr_ast_node:
-        print("RRRRRRRRRRRRRRRR: ", ast.dump(node),"\n")
+        if config.PRINT_DEBUG: print("RRRRRRRRRRRRRRRR: ", ast.dump(node),"\n")
         assert equality.compare(self.wps[self.curr_ast_node_key], FALSE)
         # Soundness flag was already set to True at visit_FunctionDef
         assert self.REF_soundness_flag[self.curr_ast_node_key] == True
@@ -583,8 +587,8 @@ class Analyzer(ast.NodeVisitor):
           old_flag = self.curr_SN_flag
           self.curr_SN_flag = self.curr_SN_flag and (not intersect)
 
-          print("\n======> REF IMM (For_Qpost == True)")
-          if print_stuff:
+          if config.PRINT_DEBUG:
+            print("\n======> REF IMM (For_Qpost == True)")
             print("E1 in E2: ", ast.unparse(REF_E1E2))
             print("mod(E1 in E2):")
             for loc in mod_set: print("--- ",loc) 
@@ -606,8 +610,8 @@ class Analyzer(ast.NodeVisitor):
           old_flag = self.curr_SN_flag
           self.curr_SN_flag = self.curr_SN_flag and (not intersect)
 
-          print("\n======> REF IMM (For_Qpost != True)")
-          if print_stuff:
+          if config.PRINT_DEBUG:
+            print("\n======> REF IMM (For_Qpost != True)")
             print("For: ", ast.unparse(REF_FOR))
             print("mod(For):")
             for loc in mod_set: print("--- ",loc) 
@@ -657,8 +661,8 @@ class Analyzer(ast.NodeVisitor):
         old_flag = self.curr_SN_flag
         self.curr_SN_flag = self.curr_SN_flag and (not intersect)
 
-        print("\n======> REF IMM (Other)")
-        if print_stuff:
+        if config.PRINT_DEBUG:
+          print("\n======> REF IMM (Other)")
           print("Other: ", ast.unparse(REF_Other))
           print("mod(Other):")
           for loc in mod_set: print("--- ",loc) 
@@ -683,7 +687,7 @@ class Analyzer(ast.NodeVisitor):
         #print(ast.dump(node))
         #print(ast.dump(self.curr_ast_node))
         if node == self.curr_ast_node:
-          print(">>> IN Call AST")
+          if config.PRINT_DEBUG: print(">>> IN Call AST")
           #print("___",pprint2.pprint_top(self.stack[-1]))
           wp_before = self.stack[-1]
           self.stack.pop()
@@ -701,17 +705,18 @@ class Analyzer(ast.NodeVisitor):
         callee_F_arg = self.function_map[callee].args
         self.kwargName = self.getKwarg(node)
         if self.kwargName is not None:
-          print("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK ", self.kwargName)
+          if config.PRINT_DEBUG: print("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK ", self.kwargName)
 
-        print("\n   Call_Helper ");
-        print("<< AST node:",ast.dump(node))
+        if config.PRINT_SOME_INFO:
+          print("\n   Call_Helper ");
+          print("<< AST node:",ast.dump(node))
         #if node.keywords[0].arg is None:
         #  print("NONEEEEEEEEEEEE")
         #  print(ast.dump(node.keywords[0]))
         #  print(node.keywords[0].value.id)
         
         #print("F params:",ast.dump(self.params)) # probably wont be used
-        print("<< Callee name:", callee)
+        if config.PRINT_SOME_INFO: print("<< Callee name:", callee)
         if callee == "/Users/.../AppData/Local/Programs/Python/Python39/Lib/site-packages/sklearn/metrics/pairwise.py:None:pairwise_kernels":
           self.stack.pop()
           self.stack.append(ast.Constant(value="SKIP THE CALL TO /metrics/pairwise.py:None:pairwise_kernels"))
@@ -754,7 +759,7 @@ class Analyzer(ast.NodeVisitor):
             # print("\n",self.kwargDefault,"\n")
             # If func_wp is TRUE then we let it go
             if equality.compare(func_wp,TRUE):
-              print("After (Caller and Callee has (**kwargs) but WP is TRUE): ", pprint2.pprint_top(func_wp))
+              if config.PRINT_SOME_INFO: print("After (Caller and Callee has (**kwargs) but WP is TRUE): ", pprint2.pprint_top(func_wp))
               self.stack.pop()
               if equality.compare(wp_before,TRUE):
                 self.stack.append(func_wp)
@@ -801,7 +806,7 @@ class Analyzer(ast.NodeVisitor):
             num = 0
             for arg in node.args:
               if ins(arg, ast.Name):
-                print("REMOVE", ast.dump(arg), callee_F_arg.args[num].arg)
+                if config.PRINT_SOME_INFO: print("REMOVE", ast.dump(arg), callee_F_arg.args[num].arg)
                 defaultDict.pop(callee_F_arg.args[num].arg, None) #has to be name from callee
               else:
                 defaultDict.pop(callee_F_arg.args[num].arg, None)
@@ -825,7 +830,7 @@ class Analyzer(ast.NodeVisitor):
                 num = 1
               for arg in node.args:
                 param = ast.Name(id=callee_F_arg.args[num].arg)
-                print("\t[thisCallPassKwarg - pos] param: ", param.id + ", with arg: ", ast.dump(arg))
+                if config.PRINT_SOME_INFO: print("\t[thisCallPassKwarg - pos] param: ", param.id + ", with arg: ", ast.dump(arg))
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, arg)
                 num += 1
@@ -833,7 +838,7 @@ class Analyzer(ast.NodeVisitor):
             # Replace dict with i.e. "check_params["dtype"]"
             for key in defaultDict.keys():
               param = ast.Name(id=key)
-              print("\t[thisCallPassKwarg - substitute]: ", param.id, "with", kwargArgName+".get(\""+param.id+"\","+helper.ToStr(defaultDict[key])+")")
+              if config.PRINT_SOME_INFO: print("\t[thisCallPassKwarg - substitute]: ", param.id, "with", kwargArgName+".get(\""+param.id+"\","+helper.ToStr(defaultDict[key])+")")
               #print(defaultDict[key], ast.dump(helper.ToAst(defaultDict[key])))
               subs = ast.Call(func=ast.Attribute(value=ast.Name(id=kwargArgName), attr='get'), 
                       args=[ast.Constant(value=param.id), helper.ToAst(defaultDict[key])], keywords=[])
@@ -849,7 +854,7 @@ class Analyzer(ast.NodeVisitor):
             for keyword in node.keywords:
               if keyword.arg is not None:
                 param = ast.Name(id=keyword.arg)
-                print("\t[thisCallPassKwarg - keyword default]: ", param.id, "with arg: ", ast.dump(keyword.value))
+                if config.PRINT_SOME_INFO: print("\t[thisCallPassKwarg - keyword default]: ", param.id, "with arg: ", ast.dump(keyword.value))
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, keyword.value)               
 
@@ -874,7 +879,7 @@ class Analyzer(ast.NodeVisitor):
             
             for kw in callee_F_arg.kwonlyargs:
               actual_kwargs_dict.pop(kw.arg, None)
-            print("\nactual_kwargs_dict: ",actual_kwargs_dict)
+            if config.PRINT_SOME_INFO: print("\nactual_kwargs_dict: ",actual_kwargs_dict)
 
             # replace this dict to *kwargs. It should result in something like {ThisDict}.get('ABC', value)
             tar = ast.Name(id=callee_F_arg.kwarg.arg)
@@ -887,7 +892,7 @@ class Analyzer(ast.NodeVisitor):
               assert False, "Replacement dict is None ???"
 
             if occurs_in_formula(func_wp, tar):
-              print("\t[CalleeHasKwarg - replace kwarg with actual dict and simplify (if possible)] kwarg: " + tar.id + " ,dict", pprint2.pprint_top(rep_dict))
+              if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - replace kwarg with actual dict and simplify (if possible)] kwarg: " + tar.id + " ,dict", pprint2.pprint_top(rep_dict))
               func_wp = replace_in_formula(func_wp, tar, rep_dict)
 
             # Replace postional arguments
@@ -900,7 +905,7 @@ class Analyzer(ast.NodeVisitor):
                 if num >= len(callee_F_arg.args): #SVC
                   continue
                 param = ast.Name(id=callee_F_arg.args[num].arg)
-                print("\t[CalleeHasKwarg - pos] param: ", param.id + ", with arg: ", ast.dump(arg))
+                if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - pos] param: ", param.id + ", with arg: ", ast.dump(arg))
                 pos_arg.append(param.id)
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, arg)
@@ -926,9 +931,9 @@ class Analyzer(ast.NodeVisitor):
               # replace with default value
               if not found:
                 param = ast.Name(id = callee_F_arg.args[arg_pos].arg)
-                print("\t[CalleeHasKwarg - pos default] param:", param.id, "with arg: ", ast.dump(callee_F_arg.defaults[de_pos]))
+                if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - pos default] param:", param.id, "with arg: ", ast.dump(callee_F_arg.defaults[de_pos]))
                 if occurs_in_formula(func_wp, param):
-                  print("Occur = YES")
+                  if config.PRINT_SOME_INFO: print("Occur = YES")
                   func_wp = replace_in_formula(func_wp, param, callee_F_arg.defaults[de_pos])
               de_pos -= 1
               arg_pos -= 1 
@@ -937,7 +942,7 @@ class Analyzer(ast.NodeVisitor):
             for keyword in node.keywords:
               if keyword.arg not in actual_kwargs_dict:
                 param = ast.Name(id=keyword.arg)
-                print("\t[CalleeHasKwarg - keyword] param: ", param.id, "with value: ", ast.dump(keyword.value))
+                if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - keyword] param: ", param.id, "with value: ", ast.dump(keyword.value))
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, keyword.value)
 
@@ -948,7 +953,7 @@ class Analyzer(ast.NodeVisitor):
                     param_sub = ast.Subscript(value=ast.Name(id=keyword.arg),slice=ast.Constant(value=num))
                     num += 1
                     #print(ast.dump(param_sub), ast.dump(elt))
-                    print("\t[CalleeHasKwarg - keyword RHS Tuple] param: ", ast.unparse(param_sub), "with value: ", ast.dump(elt))
+                    if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - keyword RHS Tuple] param: ", ast.unparse(param_sub), "with value: ", ast.dump(elt))
                     if occurs_in_formula(func_wp, param_sub):
                       func_wp = replace_in_formula(func_wp, param_sub, elt)
 
@@ -967,7 +972,7 @@ class Analyzer(ast.NodeVisitor):
                   assert False, "Should not be the case. Check just for sure"
                 # replace with default value
                 if not found:
-                  print("\t[CalleeHasKwarg - keyword default] param: ", kw.arg, "with arg: ", ast.dump(callee_F_arg.kw_defaults[count]))
+                  if config.PRINT_SOME_INFO: print("\t[CalleeHasKwarg - keyword default] param: ", kw.arg, "with arg: ", ast.dump(callee_F_arg.kw_defaults[count]))
                   if callee_F_arg.kw_defaults[count] is not None:
                     param = ast.Name(id = kw.arg)
                     if occurs_in_formula(func_wp, param):
@@ -975,7 +980,7 @@ class Analyzer(ast.NodeVisitor):
                 count += 1
 
 
-            if print_stuff: print("\n WIP wp:",pprint2.pprint_top(func_wp),"\n")
+            if config.PRINT_DEBUG: print("\n WIP wp:",pprint2.pprint_top(func_wp),"\n")
 
           # The caller does NOT pass kwarg, the callee does NOT have kwarg.
           # Normal case i guess
@@ -998,7 +1003,7 @@ class Analyzer(ast.NodeVisitor):
                 if num >= len(callee_F_arg.args): # ridge
                   break
                 param = ast.Name(id=callee_F_arg.args[num].arg)
-                print("   [normal - pos] param: ", param.id, "with arg: ", ast.dump(arg))
+                if config.PRINT_SOME_INFO: print("   [normal - pos] param: ", param.id, "with arg: ", ast.dump(arg))
                 pos_arg.append(param.id)
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, arg)
@@ -1024,7 +1029,7 @@ class Analyzer(ast.NodeVisitor):
               # replace with default value
               if not found:
                 param = ast.Name(id = callee_F_arg.args[arg_pos].arg)
-                print("   [normal pos - default] param: ", param.id, "with arg: ", ast.dump(callee_F_arg.defaults[de_pos]))
+                if config.PRINT_SOME_INFO: print("   [normal pos - default] param: ", param.id, "with arg: ", ast.dump(callee_F_arg.defaults[de_pos]))
                 if occurs_in_formula(func_wp, param):
                   func_wp = replace_in_formula(func_wp, param, callee_F_arg.defaults[de_pos])
               de_pos -= 1
@@ -1034,7 +1039,7 @@ class Analyzer(ast.NodeVisitor):
             for keyword in node.keywords:
               if keyword.arg is not None: # If None then it's (**kwargs)
                 param = ast.Name(id=keyword.arg)
-                print("   [normal keyword] param: ", param.id,"with arg: ", ast.dump(keyword.value))
+                if config.PRINT_SOME_INFO: print("   [normal keyword] param: ", param.id,"with arg: ", ast.dump(keyword.value))
                 if occurs_in_formula(func_wp,param):
                   func_wp = replace_in_formula(func_wp, param, keyword.value)
 
@@ -1053,7 +1058,7 @@ class Analyzer(ast.NodeVisitor):
                   assert False, "Should not be the case. Check just for sure"
                 # replace with default value
                 if not found:
-                  print("   [normal kw_defaults] param: ", kw.arg, "with arg: ", ast.dump(callee_F_arg.kw_defaults[count]))
+                  if config.PRINT_SOME_INFO: print("   [normal kw_defaults] param: ", kw.arg, "with arg: ", ast.dump(callee_F_arg.kw_defaults[count]))
                   if callee_F_arg.kw_defaults[count] is not None:
                     param = ast.Name(id = kw.arg)
                     if occurs_in_formula(func_wp, param):
@@ -1061,7 +1066,7 @@ class Analyzer(ast.NodeVisitor):
                 count += 1
 
 
-        if print_stuff: print("After: ", pprint2.pprint_top(func_wp),"\n")
+        if config.PRINT_DEBUG: print("After: ", pprint2.pprint_top(func_wp),"\n")
         self.stack.pop()
         if equality.compare(wp_before,TRUE):
           self.stack.append(func_wp)

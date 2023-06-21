@@ -12,6 +12,7 @@ from timeit import default_timer as timer
 import ast
 import astor
 import pickle
+from pathlib import Path
 
 import sys
 
@@ -78,9 +79,10 @@ global_chk_ary_name = ""
 # f_call_graph_ver: 1 = sklearn, 2 = lightgbm
 def main(package_dir, package_name, class_name, function_name, XXXXXX):
 
-   pickleWpToFile = False  # WP result to pickle file
-   writeToFile = False  # WP result (and some info) to text file
+   #print("== Mock wp_inter.py")
+   #return
 
+   print("> Reference Immutability Initialization")
    # ref immutability
    REF_function_map, REF_bases_map, REF_imports_map, REF_globals_map = REF_crawler.get_function_map(package_dir, package_name)
    REF_call_graph_analyzer = REF_call_graph.CallGraphAnalyzer(REF_function_map,REF_bases_map,REF_imports_map,REF_globals_map)
@@ -96,6 +98,7 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
 
    #print("\n\n\n ================== END OF GLOBAL REF IMMU ================== \n\n\n")
 
+   print("> Module Crawler & Graph Analyzer")
    graph_analyzer = call_graph.main(package_dir, class_name, function_name)
    function_map = graph_analyzer.function_map
    base_map = graph_analyzer.bases_map
@@ -147,6 +150,7 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
    analyzer_list = []
    skip_selfloop = False
 
+   print("> Weakest Precondition Analysis")
 
    for rt in reversed_topo:
       
@@ -209,63 +213,25 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
       analyzer_list.append(intra_analyzer)
 
 
+   # print("\n\n============= Displaying results =============")
+   print("> Displaying Results")
 
+   output_package_path = str(Path.cwd()) + "/output/" + package_name
+   Path(output_package_path).mkdir(parents=True, exist_ok=True)
+   Path(output_package_path + "/text").mkdir(parents=True, exist_ok=True)
+   Path(output_package_path + "/pkl").mkdir(parents=True, exist_ok=True)
 
-   print("\n\n============= Displaying results =============")
+   opAbsName = package_name + "_" + class_name + "_" + function_name
 
-   ONLY_SPARSE_EXCEPTION = False
-   
-   #TODO: THIS
-   f_simplify = True
-   opName = "???"
+   # text
+   outputName1 = output_package_path + "/text/[" + opAbsName + "]NoTrue"
+   outputName2 = output_package_path + "/text/[" + opAbsName + "]True"
 
-   if f_simplify:
-      if global_f_prune:
-         outputName1 = "output_time/wp/CE/["+opName+"]"+"NoTrue"
-         outputName2 = "output_time/wp/CE/["+opName+"]"+"True"
-      else:
-         # f_prune = False
-         outputName1 = "output_time/wp/CEnoP/["+opName+"]"+"NoTrue"
-         outputName2 = "output_time/wp/CEnoP/["+opName+"]"+"True"
-   else:
-      if not global_f_prune:
-         outputName1 = "output_time/wp/noCE/["+opName+"]"+"NoTrue"
-         outputName2 = "output_time/wp/noCE/["+opName+"]"+"True"
-      else:
-         # f_prune = True
-         outputName1 = "output_time/wp/PnoCE/["+opName+"]"+"NoTrue"
-         outputName2 = "output_time/wp/PnoCE/["+opName+"]"+"True"
+   # pickle
+   outputName4 = output_package_path + "/pkl/" + opAbsName + ".pkl"
 
-   if global_check_array:
-      if f_simplify:
-         if global_f_prune:
-            outputName1 = "output_time/check_array/wp/CE/["+opName+"]"+"NoTrue"
-            outputName2 = "output_time/check_array/wp/CE/["+opName+"]"+"True"
-         else:
-            # f_prune = False
-            outputName1 = "output_time/check_array/wp/CEnoP/["+opName+"]"+"NoTrue"
-            outputName2 = "output_time/check_array/wp/CEnoP/["+opName+"]"+"True"
-      else:
-         if not global_f_prune:
-            outputName1 = "output_time/check_array/wp/noCE/["+opName+"]"+"NoTrue"
-            outputName2 = "output_time/check_array/wp/noCE/["+opName+"]"+"True"
-         else:
-            # f_prune = True
-            outputName1 = "output_time/check_array/wp/PnoCE/["+opName+"]"+"NoTrue"
-            outputName2 = "output_time/check_array/wp/PnoCE/["+opName+"]"+"True"
-
-   if global_disable_staticCE:
-      outputName1 = "output_time/staticCE/wp/["+opName+"]"+"NoTrue"
-      outputName2 = "output_time/staticCE/wp/["+opName+"]"+"True"
-
-   if global_pruning_exp:
-      outputName1 = "output_time/pruning_exp/wp/["+opName+"]"+"NoTrue"
-      outputName2 = "output_time/pruning_exp/wp/["+opName+"]"+"True"  
-
-   if global_chk_ary:
-      outputName1 = "output_time/chk_ary/wp/["+opName+"]"+global_chk_ary_name+"NoTrue"
-      outputName2 = "output_time/chk_ary/wp/["+opName+"]"+global_chk_ary_name+"True"  
-
+   # stats
+   outputNameStat = output_package_path + "/" + package_name + "_All_stats"
 
 
    numTrue = 0
@@ -273,40 +239,45 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
    numSoundNotTrue = 0
    numUnsoundNotTrue = 0
    main_wps_cut = {}
-   main_has_CA = {} # exception's path contain check_array()
-   main_no_CA = {} # exception's path DOES NOT contain check_array()
-
-   numHasCATrue = 0
-   numHasCANotTrue = 0
-   numHasCASoundNotTrue = 0
-   numHasCAUnSoundNotTrue = 0
-   numNoCATrue = 0
-   numNoCANotTrue = 0
-   numNoCASoundNotTrue = 0
-   numNoCAUnSoundNotTrue = 0
-
-   #TODO: THIS
-   outputName1 = "/Users/ingkarat/Documents/GitHub/IWP/output/a"
-   outputName2 = "/Users/ingkarat/Documents/GitHub/IWP/output/b"
+   num_contain = 0
 
    with open(outputName1, "w") as f1, open(outputName2,"w") as f2:
       main_analyzer = analyzer_list[-1]
       main_wps = main_analyzer.wps
       count = 0
       for wp in main_wps.keys():
-         print("\n",count+1)
-         print("[IMPL COUNT]:",helper.impl_counter(main_wps[wp]))
-         print("[SN_FLAG]: ", main_analyzer.REF_soundness_flag[wp])
-         if helper.impl_counter(main_wps[wp]) <= 200:
-            print("[WP]:\n\t", pprint2.pprint_top(main_wps[wp]))
-         else:
-            print("[WP]:\n\t(WP too long. Did not print)")
-         print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n")
+
+         global contain
+         contain = False
+         #containFilteredASTConstant(main_wps_cut[wp])
+         containFilteredASTConstant(main_wps[wp])
+         if contain:
+            # What do we do here? just print?
+            num_contain += 1
+            continue
+            #if not global_chk_ary:
+               #assert False
+               #continue
+
+         if config.PRINT_TO_TERMINAL:
+            if config.COMPACT_RESULT:
+               print(count+1)
+               print(pprint2.pprint_top(main_wps[wp]))
+            else:
+               print("\n",count+1)
+               print("[IMPL COUNT]:",helper.impl_counter(main_wps[wp]))
+               print("[SN_FLAG]: ", main_analyzer.REF_soundness_flag[wp])
+               if helper.impl_counter(main_wps[wp]) <= 200:
+                  print("[WP]:\n\t", pprint2.pprint_top(main_wps[wp]))
+               else:
+                  print("[WP]:\n\t(WP too long. Did not print)")
+               print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n")
 
          if helper.impl_counter(main_wps[wp]) <= 200:
             main_wps_cut[wp] = main_wps[wp]
          else:
-            #count += 1
+            count += 1
+            continue
             if global_check_array:
                main_wps_cut[wp] = main_wps[wp]
             if global_chk_ary:
@@ -314,27 +285,7 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
             else:
                count += 1
                continue
-
-         global contain
-         contain = False
-         containFilteredASTConstant(main_wps_cut[wp])
-         if contain:
-            #if not global_check_array:
-            #   continue
-            if not global_chk_ary:
-               continue
-            #print(ast.dump(main_wps[wp]))
-         #print("=====")
-         #print(ast.dump(main_wps[wp]))
       
-
-         if 0:
-            if (not equality.compare(main_wps[wp],TRUE)):
-               f = f1
-               numNotTrue += 1
-            else:
-               f = f2
-               numTrue += 1
          thisIsTrue = 0
          thisIsNotTrue = 0
          thisIsSoundNotTrue = 0
@@ -354,192 +305,55 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
             numTrue += 1
             thisIsTrue = 0
 
+         if config.WRITE_TXT_RESULT_TO_FILE:
+            if config.COMPACT_RESULT:
+               print(count+1,file = f)
+               print(pprint2.pprint_top(main_wps_cut[wp]),file = f)
+            else:
+               print("\n",count+1,file = f)
+               print("[IMPL COUNT]:",helper.impl_counter(main_wps_cut[wp]),file = f)
+               print("[SN_FLAG]: ", main_analyzer.REF_soundness_flag[wp],file = f)
+               #print("[WP]:\n\t", pprint.pprint_top(main_wps[wp]),file = f)
+               print("[WP]:\n\t", pprint2.pprint_top(main_wps_cut[wp]),file = f)
+               print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n", file = f)
 
-         containCheck_Array = False
-
-         if writeToFile:
-            print("\n",count+1,file = f)
-            print("[IMPL COUNT]:",helper.impl_counter(main_wps_cut[wp]),file = f)
-            print("[SN_FLAG]: ", main_analyzer.REF_soundness_flag[wp],file = f)
-            #print("[WP]:\n\t", pprint.pprint_top(main_wps[wp]),file = f)
-            print("[WP]:\n\t", pprint2.pprint_top(main_wps_cut[wp]),file = f)
-            print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n", file = f)
-
-            if "/utils/validation.py:None:check_array" in wp[1]:
-               containCheck_Array = True
-
-         num = len(wp) - 3
-         while num > 1:
-            print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]))
-            print("[Call node]:\n\t", ast.dump(wp[num]))
-            print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t")
-            if writeToFile:
-               print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]), file = f)
-               print("[Call node]:\n\t", ast.dump(wp[num]), file = f)
-               print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t", file = f)
-
-            if "/utils/validation.py:None:check_array" in wp[num+1]:
-               containCheck_Array = True
-            if "/utils/validation.py:None:check_array" in wp[num+2]:
-               containCheck_Array = True
-            num -= 3
-
-         if containCheck_Array:
-            main_has_CA[wp] = main_wps_cut[wp]
-            numHasCATrue += thisIsTrue
-            numHasCANotTrue += thisIsNotTrue
-            numHasCASoundNotTrue += thisIsSoundNotTrue
-            numHasCAUnSoundNotTrue += thisIsUnsoundNotTrue
-         else:
-            main_no_CA[wp] = main_wps_cut[wp]
-            numNoCATrue += thisIsTrue
-            numNoCANotTrue += thisIsNotTrue
-            numNoCASoundNotTrue += thisIsSoundNotTrue
-            numNoCAUnSoundNotTrue += thisIsUnsoundNotTrue
-
-
-         count += 1
-
-      assert False, "SO FAR SO GOOD (WORKING ON RESULT PATHS)"
-
-      main_kwargDefaults = main_analyzer.kwargDefault
-      count = 0
-      for k in main_kwargDefaults.keys():
-         if len(main_kwargDefaults[k]) > 0:
-            print("\n",count+1)
-            print(main_kwargDefaults[k])
-         if 0:
+         if not config.COMPACT_RESULT:
             num = len(wp) - 3
             while num > 1:
                print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]))
                print("[Call node]:\n\t", ast.dump(wp[num]))
                print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t")
+               if config.WRITE_TXT_RESULT_TO_FILE:
+                  print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]), file = f)
+                  print("[Call node]:\n\t", ast.dump(wp[num]), file = f)
+                  print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t", file = f)
+
                num -= 3
          count += 1
 
+      # For kwargDefaults during the analysis. Not using it for now (somewhat incomplete. check wp_intra.py)
+      if 0:
+         main_kwargDefaults = main_analyzer.kwargDefault
+         count = 0
+         for k in main_kwargDefaults.keys():
+            if len(main_kwargDefaults[k]) > 0:
+               print("\n",count+1)
+               print(main_kwargDefaults[k])
+            count += 1
 
-   if f_simplify:
-      if global_f_prune:
-         outputName3 = "output_time/pkl/CE/" + opName + ".pkl"
-      else:
-         # f_prune == False
-         outputName3 = "output_time/pkl/CEnoP/" + opName + ".pkl"
-   else:
-      if not global_f_prune:
-         outputName3 = "output_time/pkl/noCE/" + opName + ".pkl"
-      else:
-         # f_prune == True
-         outputName3 = "output_time/pkl/PnoCE/" + opName + ".pkl"
-
-   if global_check_array:
-      if f_simplify:
-         if global_f_prune:
-            outputName3 = "output_time/check_array/pkl/CE/" + opName + ".pkl"
-         else:
-            # f_prune == False
-            outputName3 = "output_time/check_array/pkl/CEnoP/" + opName + ".pkl"
-      else:
-         if not global_f_prune:
-            outputName3 = "output_time/check_array/pkl/noCE/" + opName + ".pkl"
-         else:
-            # f_prune == True
-            outputName3 = "output_time/check_array/pkl/PnoCE/" + opName + ".pkl"
-
-   if global_disable_staticCE:
-      outputName3 = "output_time/staticCE/pkl/" + opName + ".pkl"
-
-   if global_pruning_exp:
-      outputName3 = "output_time/pruning_exp/pkl/" + opName + ".pkl"
-
-   if global_chk_ary:
-      outputName3 = "output_time/chk_ary/pkl/" + opName + ".pkl"
-
-
-   if global_chk_ary:
-      pickleWpToFile = False
-
-   if pickleWpToFile:
-      with open(outputName3, "wb") as f3:
-         main_analyzer = analyzer_list[-1]
-         main_wps = main_analyzer.wps
-         pickle.dump(main_wps, f3, pickle.HIGHEST_PROTOCOL)
-
-
-   if f_simplify:
-      if global_f_prune:
-         outputNameStat = "output_time/stats/CE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/stats/CE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/stats/CE_sklearn_3_NoCA_stats"
-      else:
-         # f_prune == False
-         outputNameStat = "output_time/stats/CEnoP_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/stats/CEnoP_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/stats/CEnoP_sklearn_3_NoCA_stats"
-   else:
-      if not global_f_prune:
-         outputNameStat = "output_time/stats/noCE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/stats/noCE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/stats/noCE_sklearn_3_NoCA_stats"
-      else:
-         #f_prune == True
-         outputNameStat = "output_time/stats/PnoCE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/stats/PnoCE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/stats/PnoCE_sklearn_3_NoCA_stats"  
-
-   if global_check_array:
-      if f_simplify:
-         if global_f_prune:
-            outputNameStat = "output_time/check_array/stats/CE_sklearn_1_All_stats"
-            outputNameStatHasCA = "output_time/check_array/stats/CE_sklearn_2_HasCA_stats"
-            outputNameStatNoCA = "output_time/check_array/stats/CE_sklearn_3_NoCA_stats"
-         else:
-            # f_prune == False
-            outputNameStat = "output_time/check_array/stats/CEnoP_sklearn_1_All_stats"
-            outputNameStatHasCA = "output_time/check_array/stats/CEnoP_sklearn_2_HasCA_stats"
-            outputNameStatNoCA = "output_time/check_array/stats/CEnoP_sklearn_3_NoCA_stats"
-      else:
-         if not global_f_prune:
-            outputNameStat = "output_time/check_array/stats/noCE_sklearn_1_All_stats"
-            outputNameStatHasCA = "output_time/check_array/stats/noCE_sklearn_2_HasCA_stats"
-            outputNameStatNoCA = "output_time/check_array/stats/noCE_sklearn_3_NoCA_stats"
-         else:
-            #f_prune == True
-            outputNameStat = "output_time/check_array/stats/PnoCE_sklearn_1_All_stats"
-            outputNameStatHasCA = "output_time/check_array/stats/PnoCE_sklearn_2_HasCA_stats"
-            outputNameStatNoCA = "output_time/check_array/stats/PnoCE_sklearn_3_NoCA_stats"        
-
-   if global_disable_staticCE:
-         outputNameStat = "output_time/staticCE/stats/staticCE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/staticCE/stats/staticCE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/staticCE/stats/staticCE_sklearn_3_NoCA_stats"
-
-   if global_pruning_exp:
-         outputNameStat = "output_time/pruning_exp/stats/staticCE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/pruning_exp/stats/staticCE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/pruning_exp/stats/staticCE_sklearn_3_NoCA_stats" 
-
-   if global_chk_ary:
-         outputNameStat = "output_time/chk_ary/stats/staticCE_sklearn_1_All_stats"
-         outputNameStatHasCA = "output_time/chk_ary/stats/staticCE_sklearn_2_HasCA_stats"
-         outputNameStatNoCA = "output_time/chk_ary/stats/staticCE_sklearn_3_NoCA_stats"     
+   if config.WRITE_PKL_TO_FILE:
+      with open(outputName4, "wb") as f4:
+         #main_analyzer = analyzer_list[-1]
+         #main_wps = main_analyzer.wps
+         #pickle.dump(main_wps, f4, pickle.HIGHEST_PROTOCOL)
+         pickle.dump(main_wps_cut, f4, pickle.HIGHEST_PROTOCOL)
 
 
    with open(outputNameStat, "a+") as ffs:
-      print("["+f_opName+","+str(numTrue+numNotTrue)+","+str(numTrue)+","+str(numNotTrue)+","+str(numSoundNotTrue)+","+str(numUnsoundNotTrue)+"]", file = ffs)
+      print("["+class_name+","+str(numTrue+numNotTrue)+","+str(numTrue)+","+str(numNotTrue)+","+str(numSoundNotTrue)+","+str(numUnsoundNotTrue)+"]", file = ffs)
 
-   with open(outputNameStatHasCA, "a+") as ffs:
-      print("["+f_opName+","+str(numHasCATrue+numHasCANotTrue)+","+str(numHasCATrue)+","+str(numHasCANotTrue)+","+str(numHasCASoundNotTrue)+","+str(numHasCAUnSoundNotTrue)+"]", file = ffs)
+   print("\n", num_contain, "WPs has >", config.IMPL_LIMIT, "implications at some point during the analysis and are filtered out")
 
-   with open(outputNameStatNoCA, "a+") as ffs:
-      print("["+f_opName+","+str(numNoCATrue+numNoCANotTrue)+","+str(numNoCATrue)+","+str(numNoCANotTrue)+","+str(numNoCASoundNotTrue)+","+str(numNoCAUnSoundNotTrue)+"]", file = ffs)
-
-
-   if ONLY_SPARSE_EXCEPTION:
-      with open(outputNameSUM, "a+") as fs:
-         numTotal = numTrue + numNotTrue
-         #"[NotTrue: " + str(numNotTrue) + "] "
-         print("Total exceptions: " + str(numTotal).zfill(2) + "\t" + "True: " + str(numTrue).zfill(2) + "\t" + "NotTrue: " + str(numNotTrue)
-               + "\t- " + f_opName + "(" + fname + ")", file = fs)
 
 
 
@@ -551,6 +365,8 @@ def main(package_dir, package_name, class_name, function_name, XXXXXX):
 #        for each exception in the wps[callee] substitute, then save into wps[caller]
 
 if __name__ == "__main__":
+
+   assert False, "Don't call this file directly (at least for now)"
 
    #main(1,2,3,4,5)
 
@@ -655,3 +471,171 @@ if __name__ == "__main__":
          print("\n\n> ", op)
 
    print("\n\n\n=== END ===")
+
+
+"""
+   f_simplify = True
+   opName = "???"
+
+   if f_simplify:
+      if global_f_prune:
+         outputName1 = "output_time/wp/CE/["+opName+"]"+"NoTrue"
+         outputName2 = "output_time/wp/CE/["+opName+"]"+"True"
+      else:
+         # f_prune = False
+         outputName1 = "output_time/wp/CEnoP/["+opName+"]"+"NoTrue"
+         outputName2 = "output_time/wp/CEnoP/["+opName+"]"+"True"
+   else:
+      if not global_f_prune:
+         outputName1 = "output_time/wp/noCE/["+opName+"]"+"NoTrue"
+         outputName2 = "output_time/wp/noCE/["+opName+"]"+"True"
+      else:
+         # f_prune = True
+         outputName1 = "output_time/wp/PnoCE/["+opName+"]"+"NoTrue"
+         outputName2 = "output_time/wp/PnoCE/["+opName+"]"+"True"
+
+   if global_check_array:
+      if f_simplify:
+         if global_f_prune:
+            outputName1 = "output_time/check_array/wp/CE/["+opName+"]"+"NoTrue"
+            outputName2 = "output_time/check_array/wp/CE/["+opName+"]"+"True"
+         else:
+            # f_prune = False
+            outputName1 = "output_time/check_array/wp/CEnoP/["+opName+"]"+"NoTrue"
+            outputName2 = "output_time/check_array/wp/CEnoP/["+opName+"]"+"True"
+      else:
+         if not global_f_prune:
+            outputName1 = "output_time/check_array/wp/noCE/["+opName+"]"+"NoTrue"
+            outputName2 = "output_time/check_array/wp/noCE/["+opName+"]"+"True"
+         else:
+            # f_prune = True
+            outputName1 = "output_time/check_array/wp/PnoCE/["+opName+"]"+"NoTrue"
+            outputName2 = "output_time/check_array/wp/PnoCE/["+opName+"]"+"True"
+
+   if global_disable_staticCE:
+      outputName1 = "output_time/staticCE/wp/["+opName+"]"+"NoTrue"
+      outputName2 = "output_time/staticCE/wp/["+opName+"]"+"True"
+
+   if global_pruning_exp:
+      outputName1 = "output_time/pruning_exp/wp/["+opName+"]"+"NoTrue"
+      outputName2 = "output_time/pruning_exp/wp/["+opName+"]"+"True"  
+
+   if global_chk_ary:
+      outputName1 = "output_time/chk_ary/wp/["+opName+"]"+global_chk_ary_name+"NoTrue"
+      outputName2 = "output_time/chk_ary/wp/["+opName+"]"+global_chk_ary_name+"True"  
+
+
+   numHasCATrue = 0
+   numHasCANotTrue = 0
+   numHasCASoundNotTrue = 0
+   numHasCAUnSoundNotTrue = 0
+   numNoCATrue = 0
+   numNoCANotTrue = 0
+   numNoCASoundNotTrue = 0
+   numNoCAUnSoundNotTrue = 0
+
+
+   if f_simplify:
+      if global_f_prune:
+         outputNameStat = "output_time/stats/CE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/stats/CE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/stats/CE_sklearn_3_NoCA_stats"
+      else:
+         # f_prune == False
+         outputNameStat = "output_time/stats/CEnoP_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/stats/CEnoP_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/stats/CEnoP_sklearn_3_NoCA_stats"
+   else:
+      if not global_f_prune:
+         outputNameStat = "output_time/stats/noCE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/stats/noCE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/stats/noCE_sklearn_3_NoCA_stats"
+      else:
+         #f_prune == True
+         outputNameStat = "output_time/stats/PnoCE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/stats/PnoCE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/stats/PnoCE_sklearn_3_NoCA_stats"  
+
+   if global_check_array:
+      if f_simplify:
+         if global_f_prune:
+            outputNameStat = "output_time/check_array/stats/CE_sklearn_1_All_stats"
+            outputNameStatHasCA = "output_time/check_array/stats/CE_sklearn_2_HasCA_stats"
+            outputNameStatNoCA = "output_time/check_array/stats/CE_sklearn_3_NoCA_stats"
+         else:
+            # f_prune == False
+            outputNameStat = "output_time/check_array/stats/CEnoP_sklearn_1_All_stats"
+            outputNameStatHasCA = "output_time/check_array/stats/CEnoP_sklearn_2_HasCA_stats"
+            outputNameStatNoCA = "output_time/check_array/stats/CEnoP_sklearn_3_NoCA_stats"
+      else:
+         if not global_f_prune:
+            outputNameStat = "output_time/check_array/stats/noCE_sklearn_1_All_stats"
+            outputNameStatHasCA = "output_time/check_array/stats/noCE_sklearn_2_HasCA_stats"
+            outputNameStatNoCA = "output_time/check_array/stats/noCE_sklearn_3_NoCA_stats"
+         else:
+            #f_prune == True
+            outputNameStat = "output_time/check_array/stats/PnoCE_sklearn_1_All_stats"
+            outputNameStatHasCA = "output_time/check_array/stats/PnoCE_sklearn_2_HasCA_stats"
+            outputNameStatNoCA = "output_time/check_array/stats/PnoCE_sklearn_3_NoCA_stats"        
+
+   if global_disable_staticCE:
+         outputNameStat = "output_time/staticCE/stats/staticCE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/staticCE/stats/staticCE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/staticCE/stats/staticCE_sklearn_3_NoCA_stats"
+
+   if global_pruning_exp:
+         outputNameStat = "output_time/pruning_exp/stats/staticCE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/pruning_exp/stats/staticCE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/pruning_exp/stats/staticCE_sklearn_3_NoCA_stats" 
+
+   if global_chk_ary:
+         outputNameStat = "output_time/chk_ary/stats/staticCE_sklearn_1_All_stats"
+         outputNameStatHasCA = "output_time/chk_ary/stats/staticCE_sklearn_2_HasCA_stats"
+         outputNameStatNoCA = "output_time/chk_ary/stats/staticCE_sklearn_3_NoCA_stats"   
+
+   with open(outputNameStatHasCA, "a+") as ffs:
+      print("["+f_opName+","+str(numHasCATrue+numHasCANotTrue)+","+str(numHasCATrue)+","+str(numHasCANotTrue)+","+str(numHasCASoundNotTrue)+","+str(numHasCAUnSoundNotTrue)+"]", file = ffs)
+
+   with open(outputNameStatNoCA, "a+") as ffs:
+      print("["+f_opName+","+str(numNoCATrue+numNoCANotTrue)+","+str(numNoCATrue)+","+str(numNoCANotTrue)+","+str(numNoCASoundNotTrue)+","+str(numNoCAUnSoundNotTrue)+"]", file = ffs)
+
+
+
+
+   if f_simplify:
+      if global_f_prune:
+         outputName3 = "output_time/pkl/CE/" + opName + ".pkl"
+      else:
+         # f_prune == False
+         outputName3 = "output_time/pkl/CEnoP/" + opName + ".pkl"
+   else:
+      if not global_f_prune:
+         outputName3 = "output_time/pkl/noCE/" + opName + ".pkl"
+      else:
+         # f_prune == True
+         outputName3 = "output_time/pkl/PnoCE/" + opName + ".pkl"
+
+   if global_check_array:
+      if f_simplify:
+         if global_f_prune:
+            outputName3 = "output_time/check_array/pkl/CE/" + opName + ".pkl"
+         else:
+            # f_prune == False
+            outputName3 = "output_time/check_array/pkl/CEnoP/" + opName + ".pkl"
+      else:
+         if not global_f_prune:
+            outputName3 = "output_time/check_array/pkl/noCE/" + opName + ".pkl"
+         else:
+            # f_prune == True
+            outputName3 = "output_time/check_array/pkl/PnoCE/" + opName + ".pkl"
+
+   if global_disable_staticCE:
+      outputName3 = "output_time/staticCE/pkl/" + opName + ".pkl"
+
+   if global_pruning_exp:
+      outputName3 = "output_time/pruning_exp/pkl/" + opName + ".pkl"
+
+   if global_chk_ary:
+      outputName3 = "output_time/chk_ary/pkl/" + opName + ".pkl"
+
+"""
