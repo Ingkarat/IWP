@@ -37,18 +37,16 @@ The tool has 4 general functionalities.
 
 The first 3 functionalities can be used to analyze any Python libraries when providing a class and a function of that class as a target input. The hyperopt experiment tool is for machine-learning libraries, and dataset and some schemas needed to be crafted beforehand. 
 
-Let's look at an example from sklearn's operator **PCA** and a target function **fit**. First you need to provide the appropriate values for the 4 variables at the top of the main function of **main.py**.
+Let's look at an example from sklearn's operator **PCA** and a target function **fit**. First you need to provide the appropriate values for the package directory and name at the top of the main function of **main.py**.
 
 ```python
 def main(argv):
     # package directory and name
-    package_dir = "/.../ISSTA_artifact/sklearn_0.24/"
+    package_dir = "/.../scikit-learn/sklearn"
     package_name = "sklearn"
-
-    # class and function name. 
-    class_name = "PCA" 
-    function_name = "fit"
 ```
+
+By deafult, using the script without any argument will run an analysis on sklearn PCA's fit function. 
 
 The tool uses colon ":" as a separator throughout the analysis. This means that **package_dir** should not contain ":". For windows, the directory can start with, e.g. **/Users/.../sklearn_0.24/** without the **C:** or **D:** part.
 
@@ -59,7 +57,7 @@ The sklearn directory can be the one you installed (supposedly the latest versio
 Call graph construction is a name-based resolution analysis that creates a call graph from a provided target function, e.g. **PCA's fit** function. The command-line argument is **cg**.
 
 ```bash
-py main.py cg
+py main.py cg CLASS_NAME FUNCTION_NAME
 ``` 
 Part of the result is shown below. Note that multiple edges from A to B means there are multiple calls from A to B.
 ```
@@ -84,7 +82,7 @@ Additionally, the WPs constraints are stored in a pickle file (.pkl) in Python A
 The command-line argument is **wp**.
 
 ```bash
-py main.py wp
+py main.py wp CLASS_NAME FUNCTION_NAME
 ``` 
 In our example, the pickle file is at */.../output/sklearn/pkl/sklearn_PCA_fit.pkl*
 
@@ -96,12 +94,12 @@ Precondition schemas include both "useful" and "not useful" ones. The "not usefu
 The command-line argument is **jss**.
 
 ```bash
-py main.py jss
+py main.py jss CLASS_NAME FUNCTION_NAME
 ``` 
 
 
 
-### hyperopt experiment
+### hyperopt experiment (WIP)
 The experiment as described in RQ2 of the paper. It generates 1,000 random hyperparameters configurations of an operator and validates them against the precondition constraints that are now in JSON schemas. It is mainly for sklearn and others machine-learning libraries. The handwritten result (from IBM's Lale schemas) that we get here is mostly the same as from our WP constraint because we have contributed PRs to the project to improve their JSON schema constraints. The initial result of handwritten constraints can be found in the paper.
 
 Some operators do not have this experiment due to either the trials exceeded the time limit or they required customized inputs that we could not craft. Some trails still take some time to complete. you can reduce the number of trials by setting **n_trials** variable at the top of **f()** function in **inter_main.py** and **inter_sparse_main.py**.

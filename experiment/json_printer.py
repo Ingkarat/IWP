@@ -3,9 +3,11 @@ import os
 import ast
 import astor
 import pickle
+
+import config
 from equality import Impl
 from typing import List, Tuple
-import pprint
+import pprint2
 from itertools import starmap
 
 
@@ -591,7 +593,7 @@ def exn_message(e):
     return astor.to_source(ast.fix_missing_locations(e)).replace("\n", " ")
 
 def rpl(x):
-    ...
+    return x.replace(config.PATH_SHORTENING,"")
 
 contain = False
 def containFilteredASTConstant(wp):
@@ -610,34 +612,20 @@ def containFilteredASTConstant(wp):
         for elt in wp.__dict__[attr]:
           containFilteredASTConstant(elt)
 
-def to_json(op_name, fname,fver):
+# Take path of the .pkl file and output path
+def to_json(pkl_file, output_path):
 
     # input file in pkl format
-    input_file = op_name + ".pkl"
     # output path. JSON format in Python file
-    output_path = "JSS_from_dict.py"
 
     elts = []
-    with open(input_file, "rb") as f3:
+    with open(pkl_file, "rb") as f3:
         main_wps = pickle.load(f3)
-        if 0:
-            count = 0
-            for wp in main_wps:
-                print("\n",count+1)
-                print("[WP]:\n\t", pprint.pprint_top(main_wps[wp]))
-                print("[Raise node] at:", rpl(wp[1]), "\n\t", ast.dump(wp[0]),"\n")
-                num = len(wp) - 3
-                while num > 1:
-                    print("FROM: ", rpl(wp[num+1]),"\tTO:", rpl(wp[num+2]))
-                    print("[Call node]:\n\t", ast.dump(wp[num]))
-                    print("[Call code] (using ast.unparse):\n\t", ast.unparse(wp[num]),"\t")
-                    num -= 3
-                count += 1
         nub = 0
         for wp in main_wps:
             t = main_wps[wp]
             #print(ast.dump(t))
-            #print("\n",pprint.pprint_top(t))
+            #print("\n",pprint2.pprint_top(t))
             global contain
             contain = False
             containFilteredASTConstant(t)
@@ -648,7 +636,7 @@ def to_json(op_name, fname,fver):
                 t = JSONPrinter().visit(t)
                 if isinstance(t, ast.Dict):  # Some pre-condition are just False (or True)
                     nub += 1
-                    print(nub)
+                    #print(nub)
                     elts.append(
                         ast.Dict(
                             keys=[ast.Constant("description")] + t.keys,
@@ -667,9 +655,4 @@ def to_json(op_name, fname,fver):
 
 
 if __name__ == "__main__":
-
-    op = "PCA"
-    try:
-        to_json("PCA", "fit", 1) 
-    except:
-        print("EXCEPTION:", op)
+    print("> json_printer.py: NOTHING IS HERE") 
