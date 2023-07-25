@@ -25,12 +25,12 @@ def main(argv):
     config.PRINT_DEBUG = False
     config.PRINT_SOME_INFO = False
     config.PATH_SHORTENING = package_dir  # To shorten printing path
-    config.IMPL_LIMIT = 200  # If a WP contain implications more than this number at any
+    config.IMPL_LIMIT = 10  # If a WP contain implications more than this number at any
                              # point in the analysis, remove this WP. (default = 200)                        
     config.PRINT_TO_TERMINAL = True  # Print result 
-    config.WRITE_TXT_RESULT_TO_FILE = True  # Write text result (and some info) to file
-    config.WRITE_PKL_TO_FILE = True  # Write .pkl result to file
-    config.COMPACT_RESULT = False  # Only show WP in text result 
+    config.WRITE_TXT_RESULT_TO_FILE = False  # Write text result (and some info) to file
+    config.WRITE_PKL_TO_FILE = False  # Write .pkl result to file
+    config.COMPACT_RESULT = True  # Only show WP in text result 
 
     current_path = str(pathlib.Path.cwd())
 
@@ -61,6 +61,9 @@ def main(argv):
         else:
             print(f"No .pkl file for {opAbsName}. Please run the weakest precondition analysis first.")
 
+    def rpl(x):
+        return x.replace(config.PATH_SHORTENING,"")
+
     # Default = run a PCA on fit function
     if not argv:
         print(f"Default run of {class_name} class and {function_name} function.")
@@ -82,8 +85,8 @@ def main(argv):
             class_name = argv[1]
             function_name = argv[2]
             graph_analyzer = wp.call_graph.main(package_dir, class_name, function_name)
-            print("operator_main_func:", graph_analyzer.main_func)
-            print("operator_main_class:", graph_analyzer.main_class)
+            print("operator_main_func:", rpl(graph_analyzer.main_func))
+            print("operator_main_class:", rpl(graph_analyzer.main_class))
             print("A DAG: ",graph_analyzer.call_graph.isDAG())
             print("A DAG2 (NOT consider self-loop): ",graph_analyzer.call_graph.isDAG2())
             graph_analyzer.call_graph.printGraph()

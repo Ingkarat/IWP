@@ -198,6 +198,9 @@ def reverseGraph(g):
         for edge in g.edges[key]:
             rvG.addEdge(graph.Edge(edge.tgt,edge.src,edge.label))
     return rvG
+
+def rpl(x):
+  return x.replace(config.PATH_SHORTENING,"")
  
 def main(package_dir, class_name, function_name):
 
@@ -257,8 +260,8 @@ def main(package_dir, class_name, function_name):
         assert False, "Could not resolve function name"
 
     if config.PRINT_DEBUG: 
-      print("\noperator_main_func:", operator_main_func)
-      print("operator_main_class:", operator_main_class)
+      print("\noperator_main_func:", rpl(operator_main_func))
+      print("operator_main_class:", rpl(operator_main_class))
 
     if op == "CUSTOM":
         operator_main_func = "/PATH_TO/site-packages/sklearn/utils/validation.py:None:_check_large_sparse"
@@ -272,8 +275,8 @@ def main(package_dir, class_name, function_name):
 
     if config.PRINT_DEBUG: 
       analyzer.call_graph.printGraph()
-      print("operator_main_func:", operator_main_func)
-      print("operator_main_class:", operator_main_class)
+      print("operator_main_func:", rpl(operator_main_func))
+      print("operator_main_class:", rpl(operator_main_class))
       print("A DAG: ",analyzer.call_graph.isDAG())
       #print("A DAG2 (NOT consider self-loop): ",analyzer.call_graph.isDAG2())
 
